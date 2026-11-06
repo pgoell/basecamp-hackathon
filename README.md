@@ -29,7 +29,7 @@ backend/app/slides/   presentations, uploads, chats, agent tools, PDF (Playwrigh
 frontend/src/slides/  list, editor, canvas (react-moveable), chat, print page
 ```
 
-Data lives in `DATA_DIR` (default `backend/data/`, gitignored). The PDF needs the frontend running: the backend's Chromium prints `FRONTEND_INTERNAL_URL/print/<id>` (default `http://localhost:3000`). Locally, install Chromium once with `uv run playwright install chromium`.
+Data lives in `DATA_DIR` (default `backend/data/`, gitignored): presentations in the shared store `basecamp.db`, pictures in `uploads/`. The PDF needs the frontend running: the backend's Chromium prints `FRONTEND_INTERNAL_URL/print/<id>` (default `http://localhost:3000`). Locally, install Chromium once with `uv run playwright install chromium`.
 
 Parts are ported from blattwerk (pgoell's worksheet editor): the element box, undo, the version check on saves, the plain-word schema errors and the Chromium PDF export.
 
