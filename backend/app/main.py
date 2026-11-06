@@ -1,22 +1,21 @@
 """HTTP API: the agent catalog, canvases, and team runs that fill them.
 
 POST /api/teams/{key}/runs makes a canvas and starts the team in the
-background; the page then follows GET /api/canvases/{id}/stream.
+background; the page then follows GET /api/canvases/{id}/stream. The files a
+run writes are served from GET /api/runs/{canvas_id}/files/{path}.
 """
 
 import asyncio
 import logging
 import os
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
-from anthropic import AsyncAnthropic
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import dummy, runs, store
+from . import dummy, hierarchy, runs, store
 from .canvas import Canvas
 from .canvas import store as canvases
 from .canvas.models import block_input_adapter
@@ -26,9 +25,12 @@ from .slides import chat, pdf, presentations, uploads
 
 log = logging.getLogger(__name__)
 
-# "managed" runs teams on Claude Managed Agents; "dummy" fills the canvas
-# without a model, for local runs and tests.
-ORCHESTRATOR = os.environ.get("ORCHESTRATOR", "managed")
+# "hierarchy" runs teams on the Claude Messages API (coordinator -> members ->
+# up to 3 helpers each); "dummy" fills the canvas without a model, for local
+# runs and tests.
+ORCHESTRATOR = os.environ.get("ORCHESTRATOR", "hierarchy")
+# Cost guard: how many real runs may execute at the same time.
+MAX_PARALLEL_RUNS = int(os.environ.get("MAX_PARALLEL_RUNS", "2"))
 # Cloudflare drops a response that sends nothing for 100 seconds.
 PING_SECONDS = 20
 
@@ -91,7 +93,7 @@ SUMMARY = {"key", "name", "description", "coordinator", "members"}
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "swarm": bool(runs.swarm().get("agents"))}
+    return {"ok": True, "orchestrator": ORCHESTRATOR, "active_runs": len(tasks)}
 
 
 @app.get("/api/schema")
@@ -184,6 +186,8 @@ async def start_run(team_key: str, body: RunRequest) -> dict:
     text = body.input or (cat.read_knowledge(team.input.sample) if team.input.sample else "")
     if not text:
         raise HTTPException(422, "input is required for this team")
+    if ORCHESTRATOR != "dummy" and len(tasks) >= MAX_PARALLEL_RUNS:
+        raise HTTPException(429, f"{MAX_PARALLEL_RUNS} runs are already in progress. Try again later.")
 
     canvas = canvases.create(f"{team.name} run", team=team.key)
     ctx = runs.RunContext(
@@ -199,7 +203,7 @@ async def start_run(team_key: str, body: RunRequest) -> dict:
             if ORCHESTRATOR == "dummy":
                 await asyncio.to_thread(dummy.DummyOrchestrator().run, ctx)
             else:
-                await runs.managed(ctx)
+                await hierarchy.hierarchical(ctx)
         except Exception as e:
             log.exception("run %s failed", canvas.id)
             runs.add(
@@ -217,11 +221,13 @@ async def start_run(team_key: str, body: RunRequest) -> dict:
     return {"canvas_id": canvas.id}
 
 
-@app.get("/api/files/{file_id}")
-async def download(file_id: str, name: str = "download") -> Response:
-    content = await AsyncAnthropic().beta.files.download(file_id)
-    return Response(
-        await content.read(),
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{Path(name).name}"'},
-    )
+@app.get("/api/runs/{canvas_id}/files/{path:path}")
+def run_file(canvas_id: int, path: str) -> FileResponse:
+    """A file a run wrote: its deliverables (final/) and working files (work/)."""
+    root = hierarchy.run_dir(canvas_id).resolve()
+    target = (root / path).resolve()
+    if not target.is_relative_to(root) or not target.is_file():
+        raise HTTPException(404, "file not found")
+    if target.relative_to(root).parts[0] not in hierarchy.FILE_AREAS:
+        raise HTTPException(404, "file not found")
+    return FileResponse(target, filename=target.name)

@@ -1,6 +1,6 @@
 # Basecamp: agent teams
 
-Teams of agents on [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/multi-agent). In the Deal Desk team a coordinator hands an RFP to four specialists (pricing, legal, technical fit, competitive intel), each with its own skill, and turns their answers into a Word document. Each run fills a live canvas in the web app.
+Teams of agents on the Claude Messages API, orchestrated in our own code (`backend/rfp_orchestrator`). In the Deal Desk team a coordinator hands an RFP to five specialists (requirements, pricing, legal, technical fit, competitive intel), each with its own skill; every specialist may send out up to three helpers (document analyst, section writer, fact checker). The coordinator turns their answers into a Word document. Each run fills a live canvas in the web app: one status per agent, helpers included. Details: [`backend/ORCHESTRATION.md`](./backend/ORCHESTRATION.md).
 
 Live at https://basecamp.pgoell.com (shared password; ask Pascal).
 
@@ -9,12 +9,13 @@ Live at https://basecamp.pgoell.com (shared password; ask Pascal).
 ```
 backend/    Python, FastAPI.
   catalog/           agents (agent.yaml + system.md), teams, skills, knowledge. Edit here.
-  app/setup.py       creates or updates every team's agents, writes swarm.json
+  rfp_orchestrator/  the engine: agent loops, delegation, limits, workspace, docx output
+  app/hierarchy.py   runs a catalog team on the engine and turns its events into canvas blocks
   app/main.py        the API under /api
-  app/runs.py        runs a team and turns its session events into canvas blocks
+  app/runs.py        run context and canvas helpers shared by the orchestrators
   app/canvas/        canvas blocks and tools: versioned, a stale write gets 409
   app/store.py       versioned JSON docs in SQLite under DATA_DIR (canvas, slides)
-  swarm.json         agent and environment ids by catalog key (not secret, committed)
+                     run workspaces (inputs/, work/, final/) under DATA_DIR/runs/
 frontend/   Bun and React. server.ts serves the page and forwards /api.
   src/blocks/        one component per canvas block type
 docs/hackathon/  scenario cards and stretch goals
@@ -61,18 +62,13 @@ bun install
 bun dev                                # http://localhost:3000
 ```
 
-The backend uses the agents in `backend/swarm.json`, which the whole team shares. `ORCHESTRATOR=dummy` fills the canvas without calling a model. `docker compose up --build` runs both images on the same ports with the dummy.
+Runs use `ORCHESTRATOR=hierarchy` (the default) and need `ANTHROPIC_API_KEY`. `ORCHESTRATOR=dummy` fills the canvas without calling a model. `docker compose up --build` runs both images on the same ports with the dummy. One team in the terminal, without the web app: `uv run python -m app.hierarchy deal-desk`.
 
 Check the backend with `uv run ruff check . && uv run python -m app.catalog && uv run pytest`.
 
 ## Change the agents
 
-Edit `backend/catalog/`: an agent is `agents/<key>/agent.yaml` plus `system.md`, a team is `teams/<key>.yaml` naming a coordinator and members. One agent can serve several teams. Then either:
-
-- run `uv run python -m app.setup` in `backend/` and commit `swarm.json` if it changed, or
-- start the **setup-agents** workflow on GitHub (Actions tab). It runs the same script with the team's key, commits `swarm.json` and deploys.
-
-Setup updates the agents in place, so their ids stay the same. Delete an entry from `swarm.json` to get a fresh one.
+Edit `backend/catalog/`: an agent is `agents/<key>/agent.yaml` plus `system.md`, a team is `teams/<key>.yaml` naming a coordinator, members and helpers. One agent can serve several teams. There is no setup step: the next run reads the catalog. Limits of the tree (children per specialist, total agents, parallel requests) are set in `rfp_orchestrator/config.py` or by env var, see ORCHESTRATION.md.
 
 ## Deploy
 

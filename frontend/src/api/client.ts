@@ -39,7 +39,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ ok: boolean; swarm: boolean }>("/api/health"),
+  health: () => request<{ ok: boolean; orchestrator: string; active_runs: number }>("/api/health"),
   teams: () => request<TeamSummary[]>("/api/teams"),
   team: (key: string) => request<TeamDetail>(`/api/teams/${encodeURIComponent(key)}`),
   canvas: (id: number) => request<Canvas>(`/api/canvases/${id}`),

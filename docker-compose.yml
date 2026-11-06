@@ -1,7 +1,7 @@
 # Local stack, same ports and env names as the server: http://localhost:3000
 #   docker compose up --build
 # ORCHESTRATOR=dummy fills the canvas without calling a model; set it to
-# managed and put ANTHROPIC_API_KEY in .env to run the real agents.
+# hierarchy and put ANTHROPIC_API_KEY in .env to run the real agents.
 services:
   backend:
     build: ./backend

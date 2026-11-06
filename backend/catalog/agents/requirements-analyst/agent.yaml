@@ -1,0 +1,10 @@
+name: Requirements Analyst
+description: >-
+  Extracts every requirement, deadline, evaluation criterion and submission
+  rule from the input into a compliance matrix and saves it to
+  work/requirements.md.
+model: claude-sonnet-5-5
+skills: []
+tools:
+  web: false
+tags: [analysis, deal-desk]

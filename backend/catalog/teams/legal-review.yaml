@@ -6,8 +6,9 @@ coordinator: general-counsel
 members:
   - legal-reviewer
   - critic
-workflows: false
-budget_usd: 10
+helpers:
+  - document-analyst
+  - fact-checker
 input:
   label: Contract
   sample: msa-globex.md

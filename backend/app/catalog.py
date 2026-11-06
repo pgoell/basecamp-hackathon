@@ -4,15 +4,16 @@ Layout (all under ``backend/catalog``)::
 
     agents/<agent-key>/agent.yaml   model, skills, tools, description
     agents/<agent-key>/system.md    the agent's system prompt
-    skills/<skill-key>/SKILL.md     custom skills (uploaded via the Skills API)
-    teams/<team-key>.yaml           coordinator + members + kickoff
-    knowledge/                      documents teams inline into the kickoff
+    skills/<skill-key>/SKILL.md     custom skills (injected into the agent's system prompt)
+    teams/<team-key>.yaml           coordinator + members + helpers + kickoff
+    knowledge/                      documents teams hand to the agents
 
 Agents are defined once and referenced by key from any number of teams, so a
 single "legal-reviewer" serves the Deal Desk and the Legal Review team alike.
 
-Check it with ``uv run python -m app.catalog``. ``app.setup`` creates the
-agents from it.
+Check it with ``uv run python -m app.catalog``. ``app.hierarchy`` runs a team
+from it: the coordinator delegates to the members, each member may send out up
+to three helpers (limits in ``rfp_orchestrator.config``).
 """
 
 from __future__ import annotations
@@ -53,6 +54,8 @@ class AgentSpec(BaseModel):
     skills: list[str] = Field(default_factory=list)
     tools: ToolSettings = Field(default_factory=ToolSettings)
     tags: list[str] = Field(default_factory=list)
+    # Reasoning effort; unset = by role (coordinator high, member medium, helper low).
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
 
     @property
     def fingerprint(self) -> str:
@@ -88,6 +91,8 @@ class TeamSpec(BaseModel):
     description: str
     coordinator: str
     members: list[str]
+    # Agents every member may delegate to (third level). Empty = members work alone.
+    helpers: list[str] = Field(default_factory=list)
     workflows: bool = False
     budget_usd: float | None = None
     input: TeamInput = Field(default_factory=TeamInput)
@@ -178,14 +183,16 @@ def _validate(catalog: Catalog) -> None:
     for agent in catalog.agents.values():
         errors += [f"agent '{agent.key}': unknown skill '{s}'" for s in agent.skills if s not in catalog.skills]
     for team in catalog.teams.values():
-        for ref in [team.coordinator, *team.members]:
+        for ref in [team.coordinator, *team.members, *team.helpers]:
             if ref not in catalog.agents:
                 errors.append(f"team '{team.key}': unknown agent '{ref}'")
         if team.coordinator in team.members:
             errors.append(f"team '{team.key}': coordinator cannot also be a member")
         if len(set(team.members)) != len(team.members):
             errors.append(f"team '{team.key}': duplicate members")
-        if not 1 <= len(team.members) <= 20:  # Managed Agents roster limit
+        if overlap := set(team.helpers) & {team.coordinator, *team.members}:
+            errors.append(f"team '{team.key}': helpers cannot also be coordinator or members: {sorted(overlap)}")
+        if not 1 <= len(team.members) <= 20:
             errors.append(f"team '{team.key}': needs 1-20 members")
         for doc in [team.input.sample, *team.context]:
             if doc and not (catalog.knowledge_dir / doc).is_file():

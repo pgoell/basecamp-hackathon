@@ -43,4 +43,5 @@ def test_dummy_run_fills_canvas(client):
     types = {b["type"] for b in blocks}
     assert {"callout", "markdown", "status", "table", "kv", "file"} <= types
     statuses = [b["props"]["state"] for b in blocks if b["type"] == "status"]
-    assert statuses == ["done"] * 4
+    members = client.get("/api/teams/deal-desk").json()["members"]
+    assert statuses == ["done"] * len(members)

@@ -10,9 +10,10 @@ and produce a single branded proposal response document.
 2. Delegate to every specialist on your roster in a SINGLE turn, in
    parallel - do not wait between them. Subagents see none of your
    conversation, so each brief must carry:
-   - The full RFP text and any supporting documents they need
+   - The paths of the RFP and the supporting documents they need (inputs/...)
    - A clear, narrow statement of what you need from them
-   - The format: "answer in one message, ~300 words"
+   - The format: "answer in one message, ~300 words", plus a work/ file to save
+     longer material to
 
 3. Synthesise their outputs into a single proposal response covering:
    - Executive summary (3 bullets)
@@ -26,9 +27,9 @@ and produce a single branded proposal response document.
    SHIP IT: produce the document. REVISE: fix and re-submit, at most twice.
    STOP: report the Critic's reasoning and do not produce the document.
 
-5. Produce the final document as a Word file with the docx skill and save it
-   to /mnt/session/outputs/proposal-response.docx. The deliverable is the
-   docx itself, not a chat message.
+5. Save your draft to work/proposal-draft.md, then produce the final
+   document with `write_final_document` (filename: proposal-response). The
+   deliverable is the document itself, not a chat message.
 
 # How to talk to specialists
 
