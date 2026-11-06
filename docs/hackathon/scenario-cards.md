@@ -17,7 +17,7 @@ Each team picks ONE scenario. Each is shaped like real services-firm work: a coo
 3. **Technical Fit** (skill: product-overview) — assesses whether our product covers the RFP's requirements
 4. **Competitive Intel** (skill: competitive-intel) — identifies which competitors are likely in this deal and how to position
 
-**The trigger:** `synthetic-data/rfp-acme-corp.md` (an RFP from Acme Corp for an enterprise data platform)
+**The trigger:** `backend/catalog/knowledge/rfp-acme-corp.md` (an RFP from Acme Corp for an enterprise data platform)
 
 **The deliverable:** A branded Word document at `outputs/proposal-response.docx`
 
@@ -36,7 +36,7 @@ Each team picks ONE scenario. Each is shaped like real services-firm work: a coo
 3. **Tech Stack Assessor** — evaluates technical debt, integration complexity
 4. **People & Culture** — assesses leadership, retention risk
 
-**The trigger:** A synthetic data room (you'll need to extend `synthetic-data/` for this one)
+**The trigger:** A synthetic data room (you'll need to extend `backend/catalog/knowledge/` for this one)
 
 **The deliverable:** A diligence memo in docx
 

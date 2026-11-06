@@ -6,7 +6,6 @@ schema and the frontend component. ``GET /api/schema`` exports the JSON Schema.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
@@ -106,9 +105,12 @@ class Block(BaseModel):
 
 
 class Canvas(BaseModel):
-    id: str
+    """A canvas as the API returns it. Stored as a doc of kind "canvas" in app.store,
+    whose doc holds ``team`` and ``blocks``."""
+
+    id: int
     title: str
     team: str | None = None
     version: int = 1
     blocks: list[Block] = Field(default_factory=list)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated: str

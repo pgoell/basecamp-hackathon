@@ -8,13 +8,5 @@ and a component in ``frontend/src/blocks/``.
 """
 
 from .models import Block, BlockInput, Canvas
-from .store import CanvasNotFoundError, CanvasStore, VersionConflictError
 
-__all__ = [
-    "Block",
-    "BlockInput",
-    "Canvas",
-    "CanvasNotFoundError",
-    "CanvasStore",
-    "VersionConflictError",
-]
+__all__ = ["Block", "BlockInput", "Canvas"]

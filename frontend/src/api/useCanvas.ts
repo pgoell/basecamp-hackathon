@@ -3,7 +3,7 @@ import type { Canvas } from "../blocks/types";
 import { api } from "./client";
 
 /** Live canvas: subscribes to the backend's SSE stream and keeps the latest snapshot. */
-export function useCanvas(canvasId: string | null) {
+export function useCanvas(canvasId: number | null) {
   const [canvas, setCanvas] = useState<Canvas | null>(null);
   const [connected, setConnected] = useState(false);
 

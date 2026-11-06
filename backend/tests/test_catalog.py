@@ -2,9 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_platform.catalog import CatalogError, load_catalog
-
-CATALOG = Path(__file__).resolve().parents[1] / "catalog"
+from app.catalog import CATALOG, CatalogError, load_catalog
 
 
 def test_catalog_loads_and_shares_agents_across_teams():

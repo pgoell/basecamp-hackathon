@@ -1,7 +1,7 @@
 import { useCanvas } from "../api/useCanvas";
 import { BlockView } from "../blocks/BlockView";
 
-export function CanvasView({ canvasId }: { canvasId: string | null }) {
+export function CanvasView({ canvasId }: { canvasId: number | null }) {
   const { canvas, connected } = useCanvas(canvasId);
 
   if (!canvasId) {

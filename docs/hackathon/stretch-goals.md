@@ -22,7 +22,7 @@ Add the skill to the coordinator's skill list. Re-run the deal. The output shoul
 ## Tier 2 — Make the swarm smarter
 
 ### S2. The Critic sub-agent
-Run `uv run python -m app.stretch_critic` in `backend/`. This adds a fifth agent whose only job is to push back on the coordinator's draft before it ships. The coordinator now MUST consult the critic before producing the final doc. Watch what happens to quality.
+Uncomment `critic` under `members:` in `backend/catalog/teams/deal-desk.yaml` and run setup. This adds a fifth agent whose only job is to push back on the coordinator's draft before it ships. Watch what happens to quality.
 
 **Why this lands:** Demonstrates an adversarial review pattern inside the swarm. Maps directly to how real services firms run a partner review.
 

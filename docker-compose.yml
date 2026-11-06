@@ -1,29 +1,32 @@
-# Local stack: http://localhost:8080 (frontend) -> backend:8000.
+# Local stack, same ports and env names as the server: http://localhost:3000
 #   docker compose up --build
+# ORCHESTRATOR=dummy fills the canvas without calling a model; set it to
+# managed and put ANTHROPIC_API_KEY in .env to run the real agents.
 services:
   backend:
     build: ./backend
-    image: agent-platform-backend:local
     environment:
-      CORS_ORIGINS: http://localhost:8080
-      ORCHESTRATOR: dummy
+      ORCHESTRATOR: ${ORCHESTRATOR:-dummy}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-unset}
+      DATA_DIR: /data
+      FRONTEND_INTERNAL_URL: http://frontend:3000
     volumes:
-      - backend-state:/data
-      # Edit agents/teams live without rebuilding:
+      - backend-data:/data
+      # Edit agents and teams without rebuilding:
       - ./backend/catalog:/app/catalog:ro
+    shm_size: 1gb
     ports:
       - "8000:8000"
 
   frontend:
     build: ./frontend
-    image: agent-platform-frontend:local
     environment:
       BACKEND_URL: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "3000:3000"
 
 volumes:
-  backend-state:
+  backend-data:

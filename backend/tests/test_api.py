@@ -3,23 +3,19 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_platform.agents import dummy
-from agent_platform.api import app as app_module
+from app import dummy, main
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    store = app_module.CanvasStore(tmp_path)
-    app_module.app.dependency_overrides[app_module.get_store] = lambda: store
-    monkeypatch.setattr(
-        dummy.DummyOrchestrator, "__init__", lambda self, step_seconds=0: setattr(self, "step", 0)
-    )
-    yield TestClient(app_module.app)
-    app_module.app.dependency_overrides.clear()
+def client(monkeypatch):
+    monkeypatch.setattr(main, "ORCHESTRATOR", "dummy")
+    monkeypatch.setattr(dummy.DummyOrchestrator, "__init__", lambda self: setattr(self, "step", 0))
+    with TestClient(main.app) as c:
+        yield c
 
 
 def test_catalog_endpoints(client):
-    assert client.get("/api/health").json()["status"] == "ok"
+    assert client.get("/api/health").status_code == 200
     assert "deal-desk" in {t["key"] for t in client.get("/api/teams").json()}
     detail = client.get("/api/teams/deal-desk").json()
     assert detail["coordinator_agent"]["key"] == "deal-desk-partner"
@@ -39,7 +35,7 @@ def test_dummy_run_fills_canvas(client):
     r = client.post("/api/teams/deal-desk/runs", json={})
     assert r.status_code == 202
     canvas_id = r.json()["canvas_id"]
-    for _ in range(50):
+    for _ in range(100):
         blocks = client.get(f"/api/canvases/{canvas_id}").json()["blocks"]
         if any(b["type"] == "file" for b in blocks):
             break

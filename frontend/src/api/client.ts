@@ -39,14 +39,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ status: string; version: string }>("/api/health"),
+  health: () => request<{ ok: boolean; swarm: boolean }>("/api/health"),
   teams: () => request<TeamSummary[]>("/api/teams"),
   team: (key: string) => request<TeamDetail>(`/api/teams/${encodeURIComponent(key)}`),
-  canvas: (id: string) => request<Canvas>(`/api/canvases/${encodeURIComponent(id)}`),
+  canvas: (id: number) => request<Canvas>(`/api/canvases/${id}`),
   startRun: (team: string, input: string | null) =>
-    request<{ canvas_id: string }>(`/api/teams/${encodeURIComponent(team)}/runs`, {
+    request<{ canvas_id: number }>(`/api/teams/${encodeURIComponent(team)}/runs`, {
       method: "POST",
       body: JSON.stringify({ input }),
     }),
-  canvasStreamUrl: (id: string) => `/api/canvases/${encodeURIComponent(id)}/stream`,
+  canvasStreamUrl: (id: number) => `/api/canvases/${id}/stream`,
 };

@@ -1,131 +1,224 @@
-"""HTTP API for the Deal Desk swarm.
+"""HTTP API: the agent catalog, canvases, and team runs that fill them.
 
-POST /api/runs starts a session, GET /api/runs/{id}/events streams its events
-as server-sent events, and the files routes hand out what the agents wrote.
+POST /api/teams/{key}/runs makes a canvas and starts the team in the
+background; the page then follows GET /api/canvases/{id}/stream.
 """
 
 import asyncio
-import json
+import logging
+import os
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from anthropic import AsyncAnthropic
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "synthetic-data"
-SWARM = json.loads((ROOT / "swarm.json").read_text()) if (ROOT / "swarm.json").exists() else {}
-BETAS = ["managed-agents-2026-04-01"]
-# Cloudflare drops a response that sends nothing for 100 seconds, and the
-# swarm can stay quiet longer than that while the specialists work.
+from . import dummy, runs, store
+from .canvas import Canvas
+from .canvas import store as canvases
+from .canvas.models import block_input_adapter
+from .canvas.tools import TOOLS, dispatch
+from .catalog import CATALOG, AgentSpec, Catalog, CatalogError, load_catalog
+
+log = logging.getLogger(__name__)
+
+# "managed" runs teams on Claude Managed Agents; "dummy" fills the canvas
+# without a model, for local runs and tests.
+ORCHESTRATOR = os.environ.get("ORCHESTRATOR", "managed")
+# Cloudflare drops a response that sends nothing for 100 seconds.
 PING_SECONDS = 20
 
-client = AsyncAnthropic()
 app = FastAPI()
+# Runs outlive the request that started them; keep a reference so they finish.
+tasks: set[asyncio.Task] = set()
 
-# Kickoff messages waiting for their event stream to open. The stream only
-# carries events that happen after it opens, so the message goes out from
-# inside the stream handler.
-pending: dict[str, str] = {}
+
+def catalog() -> Catalog:
+    # Read on every request so catalog edits show without a restart.
+    try:
+        return load_catalog(CATALOG)
+    except CatalogError as e:
+        raise HTTPException(500, f"invalid catalog: {e}") from e
+
+
+class AgentOut(BaseModel):
+    key: str
+    name: str
+    description: str
+    model: str
+    skills: list[str]
+    web: bool
+    tags: list[str]
+    system: str
+
+    @classmethod
+    def of(cls, spec: AgentSpec) -> "AgentOut":
+        return cls(**spec.model_dump(exclude={"tools"}), web=spec.tools.web)
+
+
+class TeamSummary(BaseModel):
+    key: str
+    name: str
+    description: str
+    coordinator: str
+    members: list[str]
+
+
+class TeamDetail(TeamSummary):
+    coordinator_agent: AgentOut
+    member_agents: list[AgentOut]
+    input_label: str
+    sample_input: str | None
+
+
+class CanvasCreate(BaseModel):
+    title: str
+    team: str | None = None
 
 
 class RunRequest(BaseModel):
-    rfp: str
+    input: str | None = None  # defaults to the team's sample input
 
 
-def kickoff(rfp: str) -> str:
-    docs = [f"=====  DOCUMENT: rfp.md  =====\n{rfp}"] + [
-        f"=====  DOCUMENT: {p.name}  =====\n{p.read_text()}"
-        for p in (DATA / "past-wins.json", DATA / "product-overview.md")
-    ]
-    return (
-        "An RFP has just landed. Please run the standard Deal Desk process:\n"
-        "1. Read the RFP yourself.\n"
-        "2. Delegate to all four specialists in parallel.\n"
-        "3. Synthesise their replies.\n"
-        "4. Produce the final proposal response as a branded Word document "
-        "if you have access to a docx skill; otherwise output the response "
-        "as a structured markdown document.\n\n"
-        "Specialists have their own skills attached for their respective "
-        "domains. Move fast — the RFP deadline is real.\n\n" + "\n\n".join(docs)
-    )
+SUMMARY = {"key", "name", "description", "coordinator", "members"}
 
 
 @app.get("/api/health")
-async def health() -> dict:
-    return {"ok": True, "swarm": bool(SWARM)}
+def health() -> dict:
+    return {"ok": True, "swarm": bool(runs.swarm().get("agents"))}
 
 
-@app.get("/api/rfp")
-async def sample_rfp() -> dict:
-    return {"rfp": (DATA / "rfp-acme-corp.md").read_text()}
+@app.get("/api/schema")
+def block_schema() -> dict[str, Any]:
+    """JSON Schema of every block type the frontend knows how to render."""
+    return block_input_adapter.json_schema()
 
 
-@app.post("/api/runs")
-async def start_run(req: RunRequest) -> dict:
-    if not SWARM:
-        raise HTTPException(503, "No swarm.json. Run `uv run python -m app.setup` first.")
-    session = await client.beta.sessions.create(
-        agent=SWARM["coordinator_id"],
-        environment_id=SWARM["environment_id"],
-        title="Deal Desk run",
+@app.get("/api/tools")
+def tool_definitions() -> list[dict[str, Any]]:
+    """Canvas tools in Claude custom-tool format, ready to attach to an agent."""
+    return TOOLS
+
+
+@app.get("/api/agents")
+def list_agents() -> list[AgentOut]:
+    return [AgentOut.of(a) for a in catalog().agents.values()]
+
+
+@app.get("/api/teams")
+def list_teams() -> list[TeamSummary]:
+    return [TeamSummary(**t.model_dump(include=SUMMARY)) for t in catalog().teams.values()]
+
+
+@app.get("/api/teams/{team_key}")
+def get_team(team_key: str) -> TeamDetail:
+    cat = catalog()
+    if team_key not in cat.teams:
+        raise HTTPException(404, f"unknown team: {team_key}")
+    t = cat.teams[team_key]
+    return TeamDetail(
+        **t.model_dump(include=SUMMARY),
+        coordinator_agent=AgentOut.of(cat.agents[t.coordinator]),
+        member_agents=[AgentOut.of(cat.agents[m]) for m in t.members],
+        input_label=t.input.label,
+        sample_input=cat.read_knowledge(t.input.sample) if t.input.sample else None,
     )
-    pending[session.id] = kickoff(req.rfp)
-    return {"session_id": session.id, "console": f"https://platform.claude.com/sessions/{session.id}"}
 
 
-@app.get("/api/runs/{session_id}/events")
-async def run_events(session_id: str) -> StreamingResponse:
-    queue: asyncio.Queue[str | None] = asyncio.Queue()
+@app.get("/api/canvases")
+def list_canvases() -> list[Canvas]:
+    return canvases.all_canvases()
 
-    async def pump() -> None:
+
+@app.post("/api/canvases", status_code=201)
+def create_canvas(body: CanvasCreate) -> Canvas:
+    return canvases.create(body.title, body.team)
+
+
+@app.get("/api/canvases/{canvas_id}")
+def get_canvas(canvas_id: int) -> Canvas:
+    return canvases.get(canvas_id)
+
+
+@app.post("/api/canvases/{canvas_id}/tools/{tool_name}")
+def call_tool(canvas_id: int, tool_name: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Run one canvas tool. Same code path an in-process orchestrator uses."""
+    return dispatch(canvas_id, tool_name, body)
+
+
+@app.get("/api/canvases/{canvas_id}/stream")
+def stream_canvas(canvas_id: int) -> StreamingResponse:
+    """Server-sent events: the full canvas on connect and after every change."""
+    canvases.get(canvas_id)  # 404 before the stream starts
+
+    def events() -> Iterator[str]:
+        seen, last, quiet = store.tick(), None, False
+        while True:
+            try:
+                canvas = canvases.get(canvas_id)
+            except HTTPException:
+                return
+            if (canvas.version, canvas.title) != last:
+                last = (canvas.version, canvas.title)
+                yield f"data: {canvas.model_dump_json()}\n\n"
+            elif quiet:
+                yield ": ping\n\n"
+            tick = store.wait(seen, PING_SECONDS)
+            quiet, seen = tick == seen, tick
+
+    return StreamingResponse(
+        events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
+    )
+
+
+@app.post("/api/teams/{team_key}/runs", status_code=202)
+async def start_run(team_key: str, body: RunRequest) -> dict:
+    cat = catalog()
+    if team_key not in cat.teams:
+        raise HTTPException(404, f"unknown team: {team_key}")
+    team = cat.teams[team_key]
+    text = body.input or (cat.read_knowledge(team.input.sample) if team.input.sample else "")
+    if not text:
+        raise HTTPException(422, "input is required for this team")
+
+    canvas = canvases.create(f"{team.name} run", team=team.key)
+    ctx = runs.RunContext(
+        catalog=cat,
+        team=team,
+        input_text=text,
+        canvas_id=canvas.id,
+        call_tool=lambda name, args: dispatch(canvas.id, name, args),
+    )
+
+    async def work() -> None:
         try:
-            async with await client.beta.sessions.events.stream(session_id) as stream:
-                if message := pending.pop(session_id, None):
-                    await client.beta.sessions.events.send(
-                        session_id,
-                        events=[{"type": "user.message", "content": [{"type": "text", "text": message}]}],
-                    )
-                async for event in stream:
-                    await queue.put(f"data: {event.model_dump_json()}\n\n")
-                    if event.type == "session.status_terminated":
-                        break
-                    # Idle with requires_action waits on us; any other idle is the end.
-                    if event.type == "session.status_idle" and event.stop_reason.type != "requires_action":
-                        break
-        except Exception as exc:  # report it to the page rather than dropping the stream
-            await queue.put(f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n")
-        finally:
-            await queue.put(None)
+            if ORCHESTRATOR == "dummy":
+                await asyncio.to_thread(dummy.DummyOrchestrator().run, ctx)
+            else:
+                await runs.managed(ctx)
+        except Exception as e:
+            log.exception("run %s failed", canvas.id)
+            runs.add(
+                ctx,
+                {
+                    "type": "callout",
+                    "title": "Run failed",
+                    "props": {"tone": "danger", "text": str(e)},
+                },
+            )
 
-    async def body():
-        task = asyncio.create_task(pump())
-        try:
-            while True:
-                try:
-                    item = await asyncio.wait_for(queue.get(), PING_SECONDS)
-                except TimeoutError:
-                    yield ": ping\n\n"
-                    continue
-                if item is None:
-                    break
-                yield item
-        finally:
-            task.cancel()
-
-    return StreamingResponse(body(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
-
-
-@app.get("/api/runs/{session_id}/files")
-async def run_files(session_id: str) -> list[dict]:
-    page = await client.beta.files.list(scope_id=session_id, betas=BETAS)
-    return [{"id": f.id, "filename": f.filename, "size": f.size_bytes} for f in page.data]
+    task = asyncio.create_task(work())
+    tasks.add(task)
+    task.add_done_callback(tasks.discard)
+    return {"canvas_id": canvas.id}
 
 
 @app.get("/api/files/{file_id}")
 async def download(file_id: str, name: str = "download") -> Response:
-    content = await client.beta.files.download(file_id)
+    content = await AsyncAnthropic().beta.files.download(file_id)
     return Response(
         await content.read(),
         media_type="application/octet-stream",

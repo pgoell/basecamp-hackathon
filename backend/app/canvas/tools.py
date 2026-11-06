@@ -6,19 +6,21 @@ orchestrator as-is; :func:`dispatch` executes a call. The HTTP endpoint
 ``POST /api/canvases/{id}/tools/{name}`` goes through the same function, so
 an agent runtime hosted elsewhere (or an MCP shim) gets identical behaviour.
 
-Every write takes ``version`` and returns the new one. On a stale version the
-call raises :class:`VersionConflictError`; tell the agent to ``get_canvas``
-and retry - never to write an old canvas back.
+Every write takes ``version`` and returns the new one. Errors raise
+HTTPException: 404 for an unknown canvas, block or tool, 422 for bad input,
+409 for a stale version. On 409 the agent calls ``get_canvas`` and retries;
+it never writes an old canvas back.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from fastapi import HTTPException
+from pydantic import BaseModel, Field, ValidationError
 
+from . import store
 from .models import BlockInput
-from .store import CanvasStore
 
 
 class GetCanvas(BaseModel):
@@ -81,16 +83,15 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 
-class UnknownToolError(KeyError):
-    pass
-
-
-def dispatch(store: CanvasStore, canvas_id: str, name: str, raw_input: dict) -> dict[str, Any]:
+def dispatch(canvas_id: int, name: str, raw_input: dict) -> dict[str, Any]:
     """Validate and run one tool call against a canvas. Returns a JSON-able result."""
     model = _TOOL_MODELS.get(name)
     if model is None:
-        raise UnknownToolError(name)
-    args = model.model_validate(raw_input)  # raises pydantic.ValidationError
+        raise HTTPException(404, f"No tool named {name}.")
+    try:
+        args = model.model_validate(raw_input)
+    except ValidationError as e:
+        raise HTTPException(422, e.errors(include_url=False, include_context=False)) from e
 
     match args:
         case GetCanvas():

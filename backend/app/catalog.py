@@ -1,6 +1,6 @@
 """Load and validate the editable agent catalog.
 
-Layout (all under ``catalog_dir``)::
+Layout (all under ``backend/catalog``)::
 
     agents/<agent-key>/agent.yaml   model, skills, tools, description
     agents/<agent-key>/system.md    the agent's system prompt
@@ -10,6 +10,9 @@ Layout (all under ``catalog_dir``)::
 
 Agents are defined once and referenced by key from any number of teams, so a
 single "legal-reviewer" serves the Deal Desk and the Legal Review team alike.
+
+Check it with ``uv run python -m app.catalog``. ``app.setup`` creates the
+agents from it.
 """
 
 from __future__ import annotations
@@ -21,6 +24,8 @@ from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError
+
+CATALOG = Path(__file__).resolve().parents[1] / "catalog"
 
 # Pre-built skills hosted by Anthropic; referenced by name, never uploaded.
 ANTHROPIC_SKILLS = frozenset({"docx", "xlsx", "pptx", "pdf"})
@@ -195,3 +200,8 @@ def _validate(catalog: Catalog) -> None:
                 errors.append(f"team '{team.key}': knowledge file not found '{doc}'")
     if errors:
         raise CatalogError("\n".join(errors))
+
+
+if __name__ == "__main__":
+    catalog = load_catalog(CATALOG)
+    print(f"catalog OK: {len(catalog.agents)} agents, {len(catalog.teams)} teams")

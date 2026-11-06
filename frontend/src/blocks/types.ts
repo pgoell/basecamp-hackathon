@@ -1,4 +1,4 @@
-// Mirrors backend/src/agent_platform/canvas/models.py. The live JSON Schema is
+// Mirrors backend/app/canvas/models.py. The live JSON Schema is
 // served at GET /api/schema if you want to generate these instead.
 
 export type StatusState = "queued" | "running" | "done" | "failed";
@@ -24,10 +24,10 @@ export interface Block<T extends string = string> {
 }
 
 export interface Canvas {
-  id: string;
+  id: number;
   title: string;
   team: string | null;
   version: number;
   blocks: Block[];
-  updated_at: string;
+  updated: string;
 }
