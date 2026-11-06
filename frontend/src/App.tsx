@@ -86,7 +86,7 @@ export function App() {
     <main>
       <header>
         <h1>Deal Desk</h1>
-        <p>A coordinator and four specialists answer an RFP.</p>
+        <p>A coordinator and four specialists answer an RFP. Slides: <a href="/slides">PowerPointless</a>.</p>
       </header>
       <section className="input">
         <textarea value={rfp} onChange={(e) => setRfp(e.target.value)} rows={14} />

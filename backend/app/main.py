@@ -13,6 +13,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
+from app.slides import chat, pdf, presentations, uploads
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "synthetic-data"
 SWARM = json.loads((ROOT / "swarm.json").read_text()) if (ROOT / "swarm.json").exists() else {}
@@ -23,6 +25,8 @@ PING_SECONDS = 20
 
 client = AsyncAnthropic()
 app = FastAPI()
+for module in (presentations, uploads, chat, pdf):
+    app.include_router(module.router)
 
 # Kickoff messages waiting for their event stream to open. The stream only
 # carries events that happen after it opens, so the message goes out from
