@@ -20,6 +20,14 @@ frontend/   Bun and React. server.ts serves the page and forwards /api.
 docs/hackathon/  scenario cards and stretch goals
 ```
 
+## RFP Solutioning (PDF in, dynamic staffing, nested sub-agents)
+
+Upload an RFP as a PDF. The **RFP Orchestrator** reads it, writes a staffing analysis, and engages only the leads the bid needs from a pool: Cloud Architect, Data Engineering Lead, Delivery Lead, Pricing, Legal, Competitive Intel. Leads with a crew of their own brief their specialists in parallel: the Cloud Architect runs a Network Engineer, a Cloud Security Engineer and a FinOps Analyst; the Data Engineering Lead runs a Pipeline Engineer, a Data Governance Specialist and an Analytics Engineer. The canvas shows the whole tree live in one `org` block.
+
+Managed Agents delegates only one level deep: an agent with a roster cannot sit on another agent's roster. So the team is `mode: dynamic` (`backend/catalog/teams/rfp-solutioning.yaml`). Its coordinator has no roster but one custom tool, `engage_lead`. Each call makes the backend open a **child session** on that lead, with the lead as coordinator of its own `members` (set in `agent.yaml`), and the lead's report goes back as the tool result (`app/runs.py: dynamic, run_lead`). Each session has a hard budget: `budget_usd` for the orchestrator, `lead_budget_usd` for each lead.
+
+The PDF goes to `POST /api/rfps`, which stores it under `DATA_DIR/rfps` and pulls out its text with pypdf. A managed run sends it to the Files API and attaches it to every session, both as a document in the first message and mounted at `/mnt/session/uploads/rfp.pdf`.
+
 ## PowerPointless (slides)
 
 A slide editor at `/slides`: 16:9 slides with text, shapes, images and tables, PDF download, and a chat at the side whose agent (Claude Opus 5.5) edits the deck through tools. Several chats per presentation; no user accounts. Details in [`docs/slides.md`](./docs/slides.md).

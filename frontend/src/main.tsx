@@ -1,4 +1,6 @@
 import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "@fontsource/silkscreen";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Editor } from "./slides/Editor";

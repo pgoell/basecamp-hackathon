@@ -1,0 +1,12 @@
+name: Cloud Architect
+description: >-
+  Designs the target cloud architecture for an RFP: landing zone, regions,
+  networking, security and run cost. Leads a Network Engineer, a Cloud Security
+  Engineer and a FinOps Analyst. Hand it the RFP requirements that touch
+  infrastructure, hosting, residency, scale and availability.
+model: claude-opus-5-5
+skills: []
+tools:
+  web: false
+tags: [lead, cloud, rfp-solutioning]
+members: [network-engineer, cloud-security-engineer, finops-analyst]

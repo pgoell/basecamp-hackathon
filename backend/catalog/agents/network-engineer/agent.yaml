@@ -1,0 +1,9 @@
+name: Network Engineer
+description: >-
+  Designs connectivity for a cloud solution: hub-and-spoke or mesh topology,
+  hybrid links to on-premises sites, ingress, DNS and multi-region failover.
+model: claude-sonnet-5-5
+skills: []
+tools:
+  web: false
+tags: [specialist, cloud]

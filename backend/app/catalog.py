@@ -53,6 +53,14 @@ class AgentSpec(BaseModel):
     skills: list[str] = Field(default_factory=list)
     tools: ToolSettings = Field(default_factory=ToolSettings)
     tags: list[str] = Field(default_factory=list)
+    # An agent with members is a lead: setup makes it the coordinator of its own
+    # roster. Leads run in their own session, engaged by a dynamic team's
+    # orchestrator, because Managed Agents delegates only one level deep.
+    members: list[str] = Field(default_factory=list)
+
+    @property
+    def is_lead(self) -> bool:
+        return bool(self.members)
 
     @property
     def fingerprint(self) -> str:
@@ -80,6 +88,7 @@ class SkillSpec(BaseModel):
 class TeamInput(BaseModel):
     label: str = "Input"
     sample: str | None = None  # file in knowledge/ shown as the default input
+    pdf: bool = False  # the web app offers a PDF upload for the input
 
 
 class TeamSpec(BaseModel):
@@ -88,8 +97,14 @@ class TeamSpec(BaseModel):
     description: str
     coordinator: str
     members: list[str]
+    # static: the coordinator delegates to its members as a roster.
+    # dynamic: members are a pool of leads; the coordinator picks the ones it
+    # needs through the engage_lead tool and each runs in its own session.
+    mode: Literal["static", "dynamic"] = "static"
     workflows: bool = False
     budget_usd: float | None = None
+    lead_budget_usd: float | None = None  # per lead session, dynamic teams only
+    max_leads: int = 6  # engage_lead calls allowed per run, dynamic teams only
     input: TeamInput = Field(default_factory=TeamInput)
     context: list[str] = Field(default_factory=list)
     kickoff: str
@@ -177,6 +192,17 @@ def _validate(catalog: Catalog) -> None:
     errors: list[str] = []
     for agent in catalog.agents.values():
         errors += [f"agent '{agent.key}': unknown skill '{s}'" for s in agent.skills if s not in catalog.skills]
+        for ref in agent.members:
+            if ref not in catalog.agents:
+                errors.append(f"agent '{agent.key}': unknown member '{ref}'")
+            elif catalog.agents[ref].members:
+                errors.append(f"agent '{agent.key}': member '{ref}' has members of its own (one level only)")
+        if agent.key in agent.members:
+            errors.append(f"agent '{agent.key}': cannot be its own member")
+        if len(set(agent.members)) != len(agent.members):
+            errors.append(f"agent '{agent.key}': duplicate members")
+        if len(agent.members) > 20:  # Managed Agents roster limit
+            errors.append(f"agent '{agent.key}': at most 20 members")
     for team in catalog.teams.values():
         for ref in [team.coordinator, *team.members]:
             if ref not in catalog.agents:
@@ -185,6 +211,12 @@ def _validate(catalog: Catalog) -> None:
             errors.append(f"team '{team.key}': coordinator cannot also be a member")
         if len(set(team.members)) != len(team.members):
             errors.append(f"team '{team.key}': duplicate members")
+        if team.mode == "static":
+            for ref in team.members:
+                if ref in catalog.agents and catalog.agents[ref].members:
+                    errors.append(f"team '{team.key}': member '{ref}' is a lead; use mode: dynamic")
+        if team.coordinator in catalog.agents and catalog.agents[team.coordinator].members:
+            errors.append(f"team '{team.key}': coordinator '{team.coordinator}' cannot have members of its own")
         if not 1 <= len(team.members) <= 20:  # Managed Agents roster limit
             errors.append(f"team '{team.key}': needs 1-20 members")
         for doc in [team.input.sample, *team.context]:

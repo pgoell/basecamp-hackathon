@@ -7,6 +7,7 @@ import { CalloutBlock } from "./CalloutBlock";
 import { FileBlock } from "./FileBlock";
 import { KeyValueBlock } from "./KeyValueBlock";
 import { MarkdownBlock } from "./MarkdownBlock";
+import { OrgBlock } from "./OrgBlock";
 import { StatusBlock } from "./StatusBlock";
 import { TableBlock } from "./TableBlock";
 import type { BlockPropsByType, BlockType } from "./types";
@@ -20,6 +21,7 @@ export const blockRegistry: Registry = {
   kv: KeyValueBlock,
   callout: CalloutBlock,
   file: FileBlock,
+  org: OrgBlock,
 };
 
 export function isKnownBlockType(type: string): type is BlockType {

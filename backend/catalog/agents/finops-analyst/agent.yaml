@@ -1,0 +1,9 @@
+name: FinOps Analyst
+description: >-
+  Estimates monthly cloud run cost from sizing assumptions and names the
+  biggest cost levers (reservations, tiering, autoscaling).
+model: claude-haiku-5-5
+skills: []
+tools:
+  web: false
+tags: [specialist, cloud, cost]

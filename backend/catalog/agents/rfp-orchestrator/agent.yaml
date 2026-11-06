@@ -1,0 +1,10 @@
+name: RFP Orchestrator
+description: >-
+  Reads an inbound RFP (often a PDF), decides which leads the bid needs, engages
+  only those leads in parallel, and synthesises their reports into a proposal
+  document.
+model: claude-opus-5-5
+skills: [docx]
+tools:
+  web: false
+tags: [coordinator, rfp-solutioning]

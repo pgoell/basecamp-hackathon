@@ -1,0 +1,9 @@
+name: Analytics Engineer
+description: >-
+  Designs the serving layer: semantic models, BI integration, self-service
+  analytics and the path to ML workloads.
+model: claude-haiku-5-5
+skills: []
+tools:
+  web: false
+tags: [specialist, data, analytics]

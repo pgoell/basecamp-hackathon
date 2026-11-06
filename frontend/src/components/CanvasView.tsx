@@ -1,24 +1,54 @@
 import { useCanvas } from "../api/useCanvas";
 import { BlockView } from "../blocks/BlockView";
+import { Window } from "./Window";
 
 export function CanvasView({ canvasId }: { canvasId: number | null }) {
   const { canvas, connected } = useCanvas(canvasId);
 
   if (!canvasId) {
-    return <p className="muted empty">Pick a team and run it. Its agents write here.</p>;
+    return (
+      <Window title="Canvas" className="canvas-win">
+        <div className="welcome">
+          <pre className="welcome-art" aria-hidden>{`   ┌──────────┐
+   │ ▓▓▓▓▓▓▓▓ │
+   │ ▓ RFP  ▓ │
+   │ ▓▓▓▓▓▓▓▓ │
+   └──┬────┬──┘
+      ▼    ▼
+   [ agents ]`}</pre>
+          <p className="welcome-line mono">
+            &gt; pick a team, drop an RFP, press RUN<span className="cursor">_</span>
+          </p>
+          <p className="muted small">Each agent writes to this canvas live while the team works.</p>
+        </div>
+      </Window>
+    );
   }
-  if (!canvas) return <p className="muted empty">Connecting…</p>;
 
   return (
-    <div className="canvas">
-      <div className="canvas-head">
-        <h2>{canvas.title}</h2>
-        <span className={`dot ${connected ? "dot-on" : ""}`} title="live" />
-        <span className="muted small">v{canvas.version}</span>
-      </div>
-      {canvas.blocks.map((b) => (
-        <BlockView key={b.id} block={b} />
-      ))}
-    </div>
+    <Window
+      title={canvas?.title ?? "Connecting…"}
+      className="canvas-win"
+      led={connected ? "on" : "off"}
+      tools={
+        canvas && (
+          <div className="toolbar mono tiny">
+            <span>v{canvas.version}</span>
+            <span>{canvas.blocks.length} blocks</span>
+            <span>{connected ? "● live" : "○ reconnecting"}</span>
+          </div>
+        )
+      }
+    >
+      {!canvas ? (
+        <p className="muted mono">Dialling in…</p>
+      ) : (
+        <div className="canvas-grid">
+          {canvas.blocks.map((b) => (
+            <BlockView key={b.id} block={b} />
+          ))}
+        </div>
+      )}
+    </Window>
   );
 }

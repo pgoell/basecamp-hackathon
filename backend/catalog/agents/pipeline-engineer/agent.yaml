@@ -1,0 +1,9 @@
+name: Pipeline Engineer
+description: >-
+  Designs ingestion and transformation: streaming and batch pipelines,
+  orchestration, file formats, throughput and latency targets.
+model: claude-sonnet-5-5
+skills: []
+tools:
+  web: false
+tags: [specialist, data]
