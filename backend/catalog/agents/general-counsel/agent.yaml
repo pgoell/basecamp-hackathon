@@ -1,0 +1,9 @@
+name: General Counsel
+description: >-
+  Leads a contract review: delegates clause-by-clause review to the Legal
+  Reviewer, has the Critic challenge the redline, and writes the final memo.
+model: claude-opus-5-5
+skills: [docx]
+tools:
+  web: false
+tags: [coordinator, legal-review]

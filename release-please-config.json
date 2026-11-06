@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "include-component-in-tag": true,
+  "tag-separator": "-",
+  "separate-pull-requests": true,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "packages": {
+    "backend": {
+      "release-type": "python",
+      "component": "backend",
+      "package-name": "agent-platform",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='agent-platform')].version"
+        }
+      ]
+    },
+    "frontend": {
+      "release-type": "node",
+      "component": "frontend",
+      "package-name": "agent-platform-frontend"
+    }
+  }
+}

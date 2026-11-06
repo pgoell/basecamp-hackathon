@@ -1,0 +1,48 @@
+name: Release
+
+# On every push to main, release-please opens/updates one release PR per
+# component (backend, frontend) with the next semantic version and changelog,
+# derived from Conventional Commits touching that folder. Merging a release PR
+# tags it (backend-v1.2.3 / frontend-v1.2.3), creates a GitHub release, and
+# publishes the Docker image to GHCR with semver tags.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      backend_released: ${{ steps.rp.outputs['backend--release_created'] }}
+      backend_version: ${{ steps.rp.outputs['backend--version'] }}
+      frontend_released: ${{ steps.rp.outputs['frontend--release_created'] }}
+      frontend_version: ${{ steps.rp.outputs['frontend--version'] }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish-backend:
+    needs: release-please
+    if: needs.release-please.outputs.backend_released == 'true'
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      component: backend
+      version: ${{ needs.release-please.outputs.backend_version }}
+
+  publish-frontend:
+    needs: release-please
+    if: needs.release-please.outputs.frontend_released == 'true'
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      component: frontend
+      version: ${{ needs.release-please.outputs.frontend_version }}

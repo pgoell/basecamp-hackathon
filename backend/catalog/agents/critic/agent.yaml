@@ -1,0 +1,10 @@
+name: Critic
+description: >-
+  Sceptical reviewer of a draft deliverable. Hand it the draft and the source
+  material; it replies with VERDICT SHIP IT, REVISE (with up to 5 issues), or
+  STOP (with the reason).
+model: claude-opus-5-5
+skills: []
+tools:
+  web: false
+tags: [review]

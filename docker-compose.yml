@@ -1,0 +1,29 @@
+# Local stack: http://localhost:8080 (frontend) -> backend:8000.
+#   docker compose up --build
+services:
+  backend:
+    build: ./backend
+    image: agent-platform-backend:local
+    environment:
+      CORS_ORIGINS: http://localhost:8080
+      ORCHESTRATOR: dummy
+    volumes:
+      - backend-state:/data
+      # Edit agents/teams live without rebuilding:
+      - ./backend/catalog:/app/catalog:ro
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    image: agent-platform-frontend:local
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+volumes:
+  backend-state:
