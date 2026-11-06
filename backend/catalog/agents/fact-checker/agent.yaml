@@ -1,0 +1,10 @@
+name: Fact Checker
+description: >-
+  Verifies a list of claims against the source documents. Give it the claims
+  (or a work/ file) and the sources; it returns verified, contradicted or
+  unsupported per claim, with evidence.
+model: claude-haiku-5-5
+skills: []
+tools:
+  web: false
+tags: [helper]

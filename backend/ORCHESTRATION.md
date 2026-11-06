@@ -1,67 +1,58 @@
-# RFP Agent Orchestration (Option B – Messages API)
+# Hierarchical agent orchestration
 
-Hierarchical multi-agent team in plain Python on the Claude Messages API.
-Limits are **enforced in code**, not only requested in prompts.
+Teams from `catalog/` run on the Claude Messages API. The orchestration, its
+limits and the event stream are our own code; the limits are **enforced in
+code**, not only requested in prompts.
 
 ```
-Bid Lead (Opus 5.5, depth 0)            → beliebig viele Spezialisten (parallel)
- ├─ Requirements Analyst (Sonnet 5.5)   → max. 3 Helper
- ├─ Technical Fit / Pricing / Legal / Competitive / Bid Reviewer
- │     └─ Document Analyst | Section Writer | Fact Checker (Haiku 5.5, depth 2, keine Delegation)
+Coordinator (team.coordinator, depth 0)  -> any number of members, in parallel
+ └─ Members (team.members, depth 1)       -> each up to 3 helpers
+     └─ Helpers (team.helpers, depth 2)   -> no delegation
 ```
 
-## Quickstart
+Deal Desk: Deal Desk Senior Partner (Opus 5.5) → Requirements Analyst, Pricing,
+Legal, Technical Fit, Competitive Intel (Sonnet 5.5) → Document Analyst,
+Section Writer, Fact Checker (Haiku 5.5).
 
-```bash
-cd backend
-uv sync
-export ANTHROPIC_API_KEY=sk-ant-...        # or put it in .env (repo root or backend/)
-uv run python -m rfp_orchestrator --show-text
-uv run python -m pytest tests -q           # offline tests, no API calls
-```
+## Pieces
 
-Output per run: `backend/outputs/<run_id>/` with `inputs/`, `work/` (shared scratch),
-`final/proposal-response.{md,docx}`, `events.jsonl`, `run-summary.json`.
+| Where | What |
+|---|---|
+| `rfp_orchestrator/runtime.py` | One tool-use loop per agent, own context window. `delegate(agent, task)` is a client-side tool: the runtime starts the child loop and returns its final report as the tool result. Several `delegate` calls in one turn run concurrently. |
+| `rfp_orchestrator/config.py` | `Limits`: depth, children per level, total agents, concurrent requests, turns. |
+| `rfp_orchestrator/workspace.py` | Per run: `inputs/` (read-only), `work/` (shared scratch), `final/` (deliverables), `events.jsonl`. |
+| `rfp_orchestrator/output.py` | `write_final_document`: markdown → `.md` + branded `.docx`. |
+| `app/hierarchy.py` | Builds the roster from the catalog, runs it, and turns events into canvas blocks: a status per agent (helpers show "for <member>"), the coordinator's notes, file blocks, run facts. |
+| `app/main.py` | `POST /api/teams/{key}/runs` (as before); files under `GET /api/runs/{canvas_id}/files/{final|work}/...`. |
 
-## How it works
+Run workspaces live under `DATA_DIR/runs/canvas-<id>/`.
 
-- Each agent = its own tool-use loop + its own context window (`runtime.py`).
-- `delegate(agent, task)` is a client-side tool. The runtime spawns the child
-  loop and returns its final report as the tool result. Multiple `delegate`
-  calls in one turn run concurrently (`asyncio.gather`).
-- Agents share files via the workspace (`inputs/` read-only, `work/` shared).
-- Enforced limits (`config.Limits`, overridable via env):
+## Limits
 
 | Limit | Default | Env |
 |---|---|---|
 | Max depth | 2 | `RFP_MAX_DEPTH` |
-| Children of orchestrator | unlimited | `RFP_MAX_CHILDREN_ORCHESTRATOR` |
-| Children per specialist | 3 | `RFP_MAX_CHILDREN_SPECIALIST` |
+| Children of the coordinator | unlimited | `RFP_MAX_CHILDREN_COORDINATOR` |
+| Children per member | 3 | `RFP_MAX_CHILDREN_SPECIALIST` |
 | Agents per run | 40 | `RFP_MAX_TOTAL_AGENTS` |
-| Parallel API requests | 8 | `RFP_MAX_CONCURRENT_REQUESTS` |
+| Parallel API requests per run | 8 | `RFP_MAX_CONCURRENT_REQUESTS` |
+| Parallel runs per server | 2 | `MAX_PARALLEL_RUNS` |
 
-- Models via `RFP_MODEL_ORCHESTRATOR / _SPECIALIST / _HELPER`.
+## Model settings
+
+- Model per agent from `agent.yaml`; `effort` optional there (default: coordinator
+  `high`, members `medium`, helpers `low`).
+- Adaptive thinking, automatic prompt caching, streaming.
 - Opus/Sonnet requests use server-side refusal fallbacks (`fallbacks: "default"`,
-  beta `server-side-fallback-2026-07-01`); disable with `Orchestration(use_fallbacks=False)`.
-- Prompt caching (auto), adaptive thinking, per-agent effort, streaming.
+  beta `server-side-fallback-2026-07-01`); off with `Orchestration(use_fallbacks=False)`.
+- Custom skills (`catalog/skills/*/SKILL.md`) are injected into the agent's system
+  prompt. Anthropic pre-built skills (`docx`, ...) are skipped: documents are
+  rendered by `write_final_document`.
 
-## Integration (frontend / deployment)
+## Try it
 
-```python
-from rfp_orchestrator import run_rfp
-
-async def sse_sink(event):          # Event -> event.to_json()
-    await queue.put(event.to_json())
-
-result = await run_rfp(rfp_path, extra_inputs=[...], sinks=[sse_sink])
+```bash
+cd backend
+uv run python -m app.hierarchy deal-desk --show-text   # one run in the terminal
+uv run pytest -q                                       # offline, scripted fake client
 ```
-
-Event types: `run_started, agent_started, agent_text, agent_tool_call,
-delegation_rejected, file_written, agent_finished, agent_error, run_finished`.
-Each event carries `agent_id`, `parent_id`, `depth` → the frontend can draw the tree live.
-
-## Extending
-
-Add an `AgentSpec` to `SPECIALISTS` or `HELPERS` in `agents.py`. The
-`description` is what the parent reads when choosing whom to delegate to.
-Skills in `skills/<name>/SKILL.md` are injected via `skills=("name",)`.

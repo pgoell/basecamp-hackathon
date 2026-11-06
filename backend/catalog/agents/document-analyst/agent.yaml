@@ -1,0 +1,9 @@
+name: Document Analyst
+description: >-
+  Fast, low-cost reader. Give it file paths and a precise extraction question;
+  it returns the relevant facts and quotes with file and section citations.
+model: claude-haiku-5-5
+skills: []
+tools:
+  web: false
+tags: [helper]

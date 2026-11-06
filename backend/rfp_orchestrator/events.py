@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Literal
+from typing import Any, Literal
 
 EventType = Literal[
     "run_started",
@@ -90,7 +91,8 @@ class ConsoleSink:
         elif e.type == "agent_started":
             print(f"{indent}▶ {who} ({d.get('model')}) task: {_short(d.get('task', ''))}", flush=True)
         elif e.type == "agent_tool_call":
-            print(f"{indent}  · {who} → {d.get('tool')} {_short(json.dumps(d.get('input', {}), ensure_ascii=False), 100)}", flush=True)
+            args = _short(json.dumps(d.get("input", {}), ensure_ascii=False), 100)
+            print(f"{indent}  · {who} → {d.get('tool')} {args}", flush=True)
         elif e.type == "delegation_rejected":
             print(f"{indent}  ✗ {who} delegation rejected: {d.get('reason')}", flush=True)
         elif e.type == "agent_text" and self.show_text:

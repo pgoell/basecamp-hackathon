@@ -1,25 +1,26 @@
-"""Hierarchical multi-agent RFP orchestration on the Claude Messages API.
+"""Hierarchical multi-agent engine on the Claude Messages API.
 
-Quick use from other code (e.g. the frontend backend):
-
-    from rfp_orchestrator import run_rfp
-    result = await run_rfp(rfp_path, extra_inputs=[...], sinks=[my_async_sink])
+The engine knows no concrete agents. Pass a roster of `AgentSpec`s and the root
+key to `run_team`; `app.hierarchy` builds the roster from `backend/catalog`.
 """
 
-from .api import run_rfp
+from .agents import AgentSpec
+from .api import new_run_id, run_team
 from .config import Limits
 from .events import ConsoleSink, Event, EventBus, JsonlSink
 from .runtime import Orchestration, RunResult
 from .workspace import Workspace
 
 __all__ = [
-    "run_rfp",
-    "Limits",
+    "AgentSpec",
+    "ConsoleSink",
     "Event",
     "EventBus",
-    "ConsoleSink",
     "JsonlSink",
+    "Limits",
     "Orchestration",
     "RunResult",
     "Workspace",
+    "new_run_id",
+    "run_team",
 ]

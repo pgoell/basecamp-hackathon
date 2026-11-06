@@ -1,0 +1,11 @@
+name: Section Writer
+description: >-
+  Drafts one section of a deliverable from given facts and an outline. Give it
+  the section goal, input file paths or facts, tone and length; it can save the
+  draft under work/ and returns the path plus a summary.
+model: claude-haiku-5-5
+effort: medium
+skills: []
+tools:
+  web: false
+tags: [helper]

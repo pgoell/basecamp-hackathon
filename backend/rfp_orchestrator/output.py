@@ -68,14 +68,15 @@ def markdown_to_docx(markdown: str, path: Path, title: str) -> None:
                 i += 1
             table = doc.add_table(rows=1, cols=len(header))
             table.style = "Light Grid Accent 1"
-            for cell, text in zip(table.rows[0].cells, header):
+            for cell, text in zip(table.rows[0].cells, header, strict=True):
                 cell.text = ""
                 _add_inline(cell.paragraphs[0], text)
                 for run in cell.paragraphs[0].runs:
                     run.bold = True
             for row in rows:
                 cells = table.add_row().cells
-                for cell, text in zip(cells, row + [""] * (len(header) - len(row))):
+                padded = row + [""] * (len(header) - len(row))
+                for cell, text in zip(cells, padded, strict=False):  # cells beyond the header are dropped
                     cell.text = ""
                     _add_inline(cell.paragraphs[0], text)
             continue
@@ -103,9 +104,9 @@ def markdown_to_docx(markdown: str, path: Path, title: str) -> None:
     doc.save(str(path))
 
 
-def write_proposal(final_dir: Path, title: str, markdown: str) -> list[Path]:
-    md_path = final_dir / "proposal-response.md"
-    docx_path = final_dir / "proposal-response.docx"
+def write_document(final_dir: Path, basename: str, title: str, markdown: str) -> list[Path]:
+    md_path = final_dir / f"{basename}.md"
+    docx_path = final_dir / f"{basename}.docx"
     md_path.write_text(f"# {title}\n\n{markdown}", encoding="utf-8")
     markdown_to_docx(markdown, docx_path, title)
     return [md_path, docx_path]

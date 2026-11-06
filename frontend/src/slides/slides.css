@@ -1,0 +1,83 @@
+/* PowerPointless. Scoped under .slides-app, so the Deal Desk page keeps its own look. */
+.slides-app { font: 14px/1.4 "Geist Variable", system-ui, sans-serif; color: #1a1a1a; }
+.slides-app button, .slides-app .button, .slides-app select {
+  font: inherit; padding: 4px 10px; border: 1px solid #d0d0d0; border-radius: 6px; background: #fff; color: #1a1a1a;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; justify-self: auto;
+}
+.slides-app button:hover, .slides-app .button:hover { background: #f0f0f0; }
+.slides-app button.on { background: #e2e8ff; border-color: #4f7cff; }
+.slides-app button:disabled { opacity: 0.4; cursor: default; }
+
+.slides-app .bar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fff; border-bottom: 1px solid #e3e3e3; }
+.slides-app .brand { font-weight: 700; color: #c43e1c; text-decoration: none; font-size: 16px; margin-right: 8px; }
+.slides-app .bar .title { flex: 1; font: inherit; font-size: 15px; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; }
+.slides-app .bar .title:hover, .slides-app .bar .title:focus { border-color: #d0d0d0; outline: none; }
+.slides-app .status { color: #777; font-size: 12px; max-width: 360px; }
+.slides-app .aside { margin-left: auto; color: #555; }
+.slides-app .hint { color: #777; padding: 0 14px; }
+
+/* The list */
+.slides-app.list { min-height: 100vh; background: #f6f6f4; }
+.cards { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, 260px); gap: 18px; padding: 18px; margin: 0; }
+.cards li { position: relative; background: #fff; border: 1px solid #e3e3e3; border-radius: 8px; padding: 10px; }
+.cards a { display: grid; gap: 4px; color: inherit; text-decoration: none; }
+.cards .slide { box-shadow: 0 0 0 1px #e3e3e3; }
+.cards small { color: #777; }
+.cards .del { position: absolute; top: 4px; right: 4px; border: 0; background: transparent; font-size: 18px; }
+
+/* The editor */
+.slides-app.editor { height: 100vh; display: grid; grid-template: auto 1fr / 200px 1fr 360px; background: #f0f0ee; }
+.slides-app.editor .bar { grid-column: 1 / -1; }
+.slides-app.loading { padding: 2rem; }
+
+.strip { overflow: auto; border-right: 1px solid #e3e3e3; background: #fafafa; }
+.strip-tools { display: flex; gap: 4px; padding: 8px; position: sticky; top: 0; background: #fafafa; z-index: 1; }
+.strip-tools select { flex: 1; }
+.strip ol { list-style: none; margin: 0; padding: 0 8px 8px; display: grid; gap: 10px; }
+.strip li { display: flex; gap: 6px; align-items: flex-start; cursor: pointer; }
+.strip li .n { width: 14px; font-size: 11px; color: #777; text-align: right; }
+.strip li .slide { box-shadow: 0 0 0 1px #d8d8d8; pointer-events: none; }
+.strip li.on .slide { box-shadow: 0 0 0 2px #c43e1c; }
+
+.stage { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 10px; background: #fff; border-bottom: 1px solid #e3e3e3; }
+.toolbar .group { display: flex; gap: 3px; align-items: center; padding-right: 6px; border-right: 1px solid #eee; }
+.toolbar .group:last-child { border-right: 0; }
+.toolbar .swatch { position: relative; display: inline-flex; align-items: center; gap: 3px; padding: 4px 8px; border: 1px solid #d0d0d0; border-radius: 6px; cursor: pointer; }
+.toolbar .swatch input { width: 18px; height: 18px; padding: 0; border: 0; background: none; cursor: pointer; }
+.canvas { position: relative; display: grid; place-items: center; overflow: hidden; min-height: 0; }
+.canvas .slide { box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15); }
+.slide-props { display: flex; gap: 10px; align-items: center; padding: 6px 10px; background: #fff; border-top: 1px solid #e3e3e3; }
+.slide-props textarea { flex: 1; font: inherit; border: 1px solid #ddd; border-radius: 6px; padding: 4px 8px; resize: vertical; }
+
+/* A slide, as every view draws it */
+.slide { position: relative; overflow: hidden; flex: none; }
+.slide .el { position: absolute; transform-origin: center; }
+.slide .text { position: absolute; inset: 0; display: flex; flex-direction: column; line-height: 1.2; overflow-wrap: break-word; white-space: pre-wrap; }
+.slide .li { position: relative; padding-left: 1.2em; }
+.slide .li::before { content: attr(data-mark); position: absolute; left: 0; }
+.slide .field { outline: none; min-height: 1em; cursor: text; }
+.slide table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; }
+.slide td { overflow: hidden; vertical-align: middle; }
+.slide td[contenteditable="true"] { outline: none; cursor: text; background: rgba(79, 124, 255, 0.05); }
+.slide .empty-image { width: 100%; height: 100%; display: grid; place-items: center; background: #eee; color: #999; }
+.canvas .slide .el { cursor: move; }
+
+/* The chat */
+.chat { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; border-left: 1px solid #e3e3e3; background: #fff; }
+.chat-head { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #eee; }
+.chat-head select { flex: 1; min-width: 0; }
+.chat-log { overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.msg { white-space: pre-wrap; padding: 6px 10px; border-radius: 10px; max-width: 92%; }
+.msg.user { align-self: flex-end; background: #c43e1c; color: #fff; }
+.msg.agent { align-self: flex-start; background: #f1f1f1; }
+.msg.tool { align-self: flex-start; color: #888; font-size: 12px; padding: 0 10px; }
+.msg.error { align-self: flex-start; color: #b00020; font-size: 12px; }
+.chat-input { display: flex; gap: 6px; padding: 8px; border-top: 1px solid #eee; }
+.chat-input textarea { flex: 1; font: inherit; border: 1px solid #ddd; border-radius: 8px; padding: 6px 8px; resize: none; }
+
+/* The print page: one slide to a 13.333 x 7.5 in page */
+@page { size: 13.333in 7.5in; margin: 0; }
+.print { margin: 0; }
+.print .page { width: 13.333in; height: 7.5in; overflow: hidden; break-after: page; }
+.print .page:last-child { break-after: auto; }

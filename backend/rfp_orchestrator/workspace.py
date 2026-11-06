@@ -9,7 +9,6 @@ Layout (per run, under outputs/<run_id>/):
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 
@@ -26,14 +25,10 @@ class Workspace:
         for area in self.AREAS:
             (self.root / area).mkdir(parents=True, exist_ok=True)
 
-    @classmethod
-    def create(cls, root: Path, input_files: list[Path]) -> "Workspace":
-        ws = cls(root)
-        for src in input_files:
-            if not src.exists():
-                raise WorkspaceError(f"Input file not found: {src}")
-            shutil.copy2(src, ws.root / "inputs" / src.name)
-        return ws
+    def write_input(self, name: str, text: str) -> Path:
+        path = self._resolve(f"inputs/{Path(name).name}", ("inputs",))
+        path.write_text(text, encoding="utf-8")
+        return path
 
     # -- path safety ------------------------------------------------------- #
     def _resolve(self, rel: str, allowed_areas: tuple[str, ...]) -> Path:

@@ -1,7 +1,9 @@
 """Hierarchical agent runtime on the Claude Messages API.
 
-    Orchestrator (depth 0)  --delegate-->  Specialists (depth 1)  --delegate-->  Helpers (depth 2)
-       unlimited children                    max 3 children each                 no delegation
+    Coordinator (depth 0)  --delegate-->  Specialists (depth 1)  --delegate-->  Helpers (depth 2)
+      unlimited children                    max 3 children each                 no delegation
+
+The roster (who may delegate to whom) is passed in by the caller.
 
 Each agent is its own manual tool-use loop with its own context window.
 `delegate` is a client-side tool: when an agent calls it, the runtime starts a
@@ -24,10 +26,10 @@ import anthropic
 from anthropic import AsyncAnthropic
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .agents import ALL_AGENTS, ORCHESTRATOR, AgentSpec
+from .agents import AgentSpec
 from .config import FALLBACK_BETA, FALLBACK_MODELS, Limits
 from .events import Event, EventBus
-from .output import write_proposal
+from .output import write_document
 from .workspace import Workspace, WorkspaceError
 
 # --------------------------------------------------------------------------- #
@@ -61,6 +63,7 @@ class DelegateInput(_Strict):
 class WriteFinalInput(_Strict):
     title: str = Field(min_length=1)
     markdown: str = Field(min_length=50)
+    filename: str = Field(default="deliverable", pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$")
 
 
 TOOL_MODELS: dict[str, type[BaseModel]] = {
@@ -68,7 +71,7 @@ TOOL_MODELS: dict[str, type[BaseModel]] = {
     "read_file": ReadFileInput,
     "write_work_file": WriteWorkFileInput,
     "delegate": DelegateInput,
-    "write_final_proposal": WriteFinalInput,
+    "write_final_document": WriteFinalInput,
 }
 
 
@@ -90,7 +93,7 @@ class Usage:
         self.cache_read_input_tokens += getattr(u, "cache_read_input_tokens", 0) or 0
         self.cache_creation_input_tokens += getattr(u, "cache_creation_input_tokens", 0) or 0
 
-    def merge(self, other: "Usage") -> None:
+    def merge(self, other: Usage) -> None:
         for k in vars(self):
             setattr(self, k, getattr(self, k) + getattr(other, k))
 
@@ -144,6 +147,8 @@ class Orchestration:
     def __init__(
         self,
         workspace: Workspace,
+        roster: dict[str, AgentSpec],
+        root_key: str,
         *,
         client: AsyncAnthropic | None = None,
         limits: Limits | None = None,
@@ -153,6 +158,13 @@ class Orchestration:
     ) -> None:
         self.client = client or AsyncAnthropic(max_retries=5)
         self.ws = workspace
+        if root_key not in roster:
+            raise ValueError(f"root agent '{root_key}' is not in the roster")
+        unknown = {k for spec in roster.values() for k in spec.can_delegate_to} - set(roster)
+        if unknown:
+            raise ValueError(f"roster references unknown agents: {sorted(unknown)}")
+        self.roster = roster
+        self.root_key = root_key
         self.limits = limits or Limits()
         self.bus = bus or EventBus()
         self.run_id = run_id or uuid.uuid4().hex[:8]
@@ -166,7 +178,7 @@ class Orchestration:
     async def run(self, task: str) -> RunResult:
         t0 = time.monotonic()
         await self._emit("run_started", data={"task": task})
-        node = self._spawn(ORCHESTRATOR, task, depth=0, parent=None)
+        node = self._spawn(self.roster[self.root_key], task, depth=0, parent=None)
         result = await self._run_agent(node)
         summary = {
             "ok": result.ok,
@@ -265,7 +277,7 @@ class Orchestration:
             },
         ]
         if self._can_delegate(node):
-            roster = [ALL_AGENTS[k] for k in node.spec.can_delegate_to]
+            roster = [self.roster[k] for k in node.spec.can_delegate_to]
             roster_text = "\n".join(f"- {a.key}: {a.description}" for a in roster)
             cap = self.limits.max_children(node.depth)
             cap_text = "no fixed limit" if cap is None else f"at most {cap} delegations in total"
@@ -292,16 +304,20 @@ class Orchestration:
         if node.spec.can_write_final:
             tools.append(
                 {
-                    "name": "write_final_proposal",
+                    "name": "write_final_document",
                     "description": (
-                        "Write the final proposal deliverable (markdown -> .md and branded .docx in final/). "
+                        "Write the final deliverable (markdown -> .md and branded .docx in final/). "
                         "Call once, with the complete document."
                     ),
                     "input_schema": {
                         "type": "object",
                         "properties": {
                             "title": {"type": "string"},
-                            "markdown": {"type": "string", "description": "Complete proposal in markdown."},
+                            "markdown": {"type": "string", "description": "Complete document in markdown."},
+                            "filename": {
+                                "type": "string",
+                                "description": "File name without extension, e.g. 'proposal-response'.",
+                            },
                         },
                         "required": ["title", "markdown"],
                         "additionalProperties": False,
@@ -333,9 +349,8 @@ class Orchestration:
         last_exc: Exception | None = None
         for attempt in range(3):
             try:
-                async with self._sem:
-                    async with self.client.beta.messages.stream(**kwargs) as stream:
-                        return await stream.get_final_message()
+                async with self._sem, self.client.beta.messages.stream(**kwargs) as stream:
+                    return await stream.get_final_message()
             except ValueError as exc:
                 # Unparseable streamed tool-input JSON (eager input streaming): retry the turn.
                 last_exc = exc
@@ -437,7 +452,9 @@ class Orchestration:
         try:
             args = model_cls.model_validate(block.input)
         except ValidationError as exc:
-            return result(f"Invalid input for {block.name}: {exc.errors(include_url=False)}. Raw: {block.input!r}", True)
+            return result(
+                f"Invalid input for {block.name}: {exc.errors(include_url=False)}. Raw: {block.input!r}", True
+            )
 
         await self._emit("agent_tool_call", node, {"tool": block.name, "input": _preview_input(block.input)})
         try:
@@ -453,7 +470,7 @@ class Orchestration:
             if isinstance(args, WriteFinalInput):
                 if not node.spec.can_write_final:
                     return result("You are not allowed to write the final deliverable.", True)
-                paths = write_proposal(self.ws.root / "final", args.title, args.markdown)
+                paths = write_document(self.ws.root / "final", args.filename, args.title, args.markdown)
                 rels = [str(p.relative_to(self.ws.root)) for p in paths]
                 self._deliverables.extend(str(p) for p in paths)
                 for rel in rels:
@@ -468,10 +485,11 @@ class Orchestration:
     async def _delegate(self, parent: AgentNode, args: DelegateInput, result) -> dict[str, Any]:
         if not self._can_delegate(parent):
             return result("You cannot delegate. Do the work yourself.", True)
-        spec = ALL_AGENTS.get(args.agent)
-        if spec is None:
-            return result(f"Unknown agent '{args.agent}'.", True)
         try:
+            spec = self.roster.get(args.agent)
+            if spec is None or args.agent not in parent.spec.can_delegate_to:
+                allowed = ", ".join(parent.spec.can_delegate_to)
+                raise DelegationRejected(f"'{args.agent}' is not in your roster. Allowed: {allowed}.")
             child = self._spawn(spec, args.task, depth=parent.depth + 1, parent=parent)
         except DelegationRejected as exc:
             await self._emit("delegation_rejected", parent, {"agent": args.agent, "reason": str(exc)})

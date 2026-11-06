@@ -1,26 +1,17 @@
-"""Central configuration: models, limits, paths.
+"""Limits of the agent tree and API settings.
 
-All limits of the agent hierarchy live here so they are easy to tune during
-the hackathon (and later via env vars on the server).
+All limits live here so they are easy to tune (and to set via env vars on the
+server).
 """
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-
-# Models (current generation). Orchestrator plans + synthesises, specialists
-# reason about one lane, helpers do the reading-heavy grunt work.
-MODEL_ORCHESTRATOR = os.environ.get("RFP_MODEL_ORCHESTRATOR", "claude-opus-5-5")
-MODEL_SPECIALIST = os.environ.get("RFP_MODEL_SPECIALIST", "claude-sonnet-5-5")
-MODEL_HELPER = os.environ.get("RFP_MODEL_HELPER", "claude-haiku-5-5")
 
 # Models that accept the server-side `fallbacks: "default"` parameter on the
 # Claude API (on a refusal the request is retried on a recommended model).
-FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-opus-5"}
+FALLBACK_MODELS = frozenset({"claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-opus-5"})
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
@@ -35,16 +26,14 @@ def _int_env(name: str, default: int | None) -> int | None:
 class Limits:
     """Shape of the agent tree.
 
-    depth 0 = orchestrator, depth 1 = specialists, depth 2 = helpers.
+    depth 0 = coordinator, depth 1 = specialists, depth 2 = helpers.
     """
 
     # Deepest level that may exist. Agents at this depth get no delegate tool.
     max_depth: int = 2
     # Max children per agent, indexed by the parent's depth. None = unlimited.
-    # Orchestrator: unlimited; specialists: up to 3 helpers each.
-    max_children_by_depth: dict[int, int | None] = field(
-        default_factory=lambda: {0: None, 1: 3}
-    )
+    # Coordinator: unlimited; specialists: up to 3 helpers each.
+    max_children_by_depth: dict[int, int | None] = field(default_factory=lambda: {0: None, 1: 3})
     # Safety nets for the whole run (cost / rate-limit protection).
     max_total_agents: int = 40
     max_concurrent_requests: int = 8
@@ -58,11 +47,11 @@ class Limits:
         return self.max_children_by_depth.get(depth)
 
     @classmethod
-    def from_env(cls) -> "Limits":
+    def from_env(cls) -> Limits:
         return cls(
             max_depth=_int_env("RFP_MAX_DEPTH", 2) or 2,
             max_children_by_depth={
-                0: _int_env("RFP_MAX_CHILDREN_ORCHESTRATOR", None),
+                0: _int_env("RFP_MAX_CHILDREN_COORDINATOR", None),
                 1: _int_env("RFP_MAX_CHILDREN_SPECIALIST", 3),
             },
             max_total_agents=_int_env("RFP_MAX_TOTAL_AGENTS", 40) or 40,

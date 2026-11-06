@@ -1,0 +1,17 @@
+name: Legal Review
+description: >-
+  Contract or customer paper in, redline memo (docx) out. General Counsel
+  runs the Legal Reviewer and has the Critic challenge the result.
+coordinator: general-counsel
+members:
+  - legal-reviewer
+  - critic
+helpers:
+  - document-analyst
+  - fact-checker
+input:
+  label: Contract
+  sample: msa-globex.md
+context: []
+kickoff: |
+  Please run a legal review of the document below and produce the redline memo.
