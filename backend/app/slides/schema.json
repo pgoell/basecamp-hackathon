@@ -1,0 +1,509 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Presentation doc",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "slides"
+  ],
+  "properties": {
+    "slides": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Slide"
+      }
+    },
+    "font": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "definitions": {
+    "Run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "underline": {
+          "type": "boolean"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        }
+      }
+    },
+    "Para": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs"
+      ],
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Run"
+          }
+        },
+        "list": {
+          "enum": [
+            "bullet",
+            "number"
+          ]
+        }
+      }
+    },
+    "Text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "number",
+          "description": "pt from the slide's left edge (slide is 960 wide)."
+        },
+        "y": {
+          "type": "number",
+          "description": "pt from the slide's top edge (slide is 540 tall)."
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Width in pt."
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Height in pt."
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "description": "Degrees clockwise about the centre."
+        },
+        "type": {
+          "const": "text"
+        },
+        "paras": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Para"
+          }
+        },
+        "size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Font size in pt. Left out, 24."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Text colour, hex. Left out, #1a1a1a."
+        },
+        "font": {
+          "type": "string",
+          "minLength": 1
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Left out, left."
+        },
+        "valign": {
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ],
+          "description": "Left out, top."
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        },
+        "role": {
+          "enum": [
+            "title",
+            "body"
+          ]
+        }
+      }
+    },
+    "Shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "shape"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "number",
+          "description": "pt from the slide's left edge (slide is 960 wide)."
+        },
+        "y": {
+          "type": "number",
+          "description": "pt from the slide's top edge (slide is 540 tall)."
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Width in pt."
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Height in pt."
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "description": "Degrees clockwise about the centre."
+        },
+        "type": {
+          "const": "shape"
+        },
+        "shape": {
+          "enum": [
+            "rect",
+            "roundRect",
+            "ellipse",
+            "triangle",
+            "line",
+            "arrow"
+          ]
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        },
+        "stroke": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0
+        },
+        "paras": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Para"
+          }
+        },
+        "size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Font size in pt. Left out, 24."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Text colour, hex. Left out, #1a1a1a."
+        },
+        "font": {
+          "type": "string",
+          "minLength": 1
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Left out, left."
+        },
+        "valign": {
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ],
+          "description": "Left out, top."
+        }
+      }
+    },
+    "Image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "src"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "number",
+          "description": "pt from the slide's left edge (slide is 960 wide)."
+        },
+        "y": {
+          "type": "number",
+          "description": "pt from the slide's top edge (slide is 540 tall)."
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Width in pt."
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Height in pt."
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "description": "Degrees clockwise about the centre."
+        },
+        "type": {
+          "const": "image"
+        },
+        "src": {
+          "type": "string",
+          "pattern": "^(/api/slides/uploads/|https://)"
+        },
+        "fit": {
+          "enum": [
+            "cover",
+            "contain"
+          ],
+          "description": "Left out, contain."
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "Table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "cells"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "number",
+          "description": "pt from the slide's left edge (slide is 960 wide)."
+        },
+        "y": {
+          "type": "number",
+          "description": "pt from the slide's top edge (slide is 540 tall)."
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Width in pt."
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Height in pt."
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "description": "Degrees clockwise about the centre."
+        },
+        "type": {
+          "const": "table"
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "header": {
+          "type": "boolean"
+        },
+        "size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Font size in pt. Left out, 16."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Text colour, hex. Left out, #1a1a1a."
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        },
+        "headerFill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        },
+        "border": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        }
+      }
+    },
+    "Element": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "text",
+            "shape",
+            "image",
+            "table"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/Text"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "shape"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/Shape"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/Image"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "table"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/Table"
+          }
+        }
+      ]
+    },
+    "Slide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "elements"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Element"
+          }
+        },
+        "background": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex colour such as \"#1f2937\"."
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
