@@ -22,6 +22,17 @@ docs/       scenario cards and stretch goals
 
 You need [uv](https://docs.astral.sh/uv/) and [Bun](https://bun.sh).
 
+Quick start:
+
+```bash
+scripts/setup.sh    # uv sync + bun install, creates backend/.env
+                    # put your ANTHROPIC_API_KEY in backend/.env
+scripts/dev.sh      # backend on :8000 and frontend on :3000; Ctrl+C stops both
+scripts/check.sh    # the same checks CI runs on pull requests
+```
+
+Or by hand:
+
 ```bash
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > backend/.env    # gitignored
 
