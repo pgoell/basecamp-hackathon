@@ -34,7 +34,7 @@ export function TeamPanel({ team, error, onRun, running }: Props) {
   if (error) return <p className="dialog dialog-danger">{error}</p>;
   if (!team) return <Window title="Loading">Booting the team…</Window>;
 
-  const dynamic = team.mode === "dynamic";
+  const crews = team.mode === "crews";
   const useRfp = tab === "pdf" && rfp;
   const ready = tab === "pdf" ? Boolean(rfp) : true;
 
@@ -42,13 +42,13 @@ export function TeamPanel({ team, error, onRun, running }: Props) {
     <div className="stack">
       <Window title={team.name} tone="tomato">
         <div className="team-head">
-          <span className={`tag ${dynamic ? "tag-teal" : "tag-ink"}`}>
-            {dynamic ? "Dynamic staffing" : "Fixed roster"}
+          <span className={`tag ${crews ? "tag-teal" : "tag-ink"}`}>
+            {crews ? "Dynamic staffing" : "Specialists + helpers"}
           </span>
         </div>
         <p className="lede">{team.description}</p>
 
-        <h4 className="eyebrow">{dynamic ? "Orchestrator and lead pool" : "Roster"}</h4>
+        <h4 className="eyebrow">{crews ? "Orchestrator and lead pool" : "Roster"}</h4>
         <ul className="roster">
           <li>
             <AgentRow agent={team.coordinator_agent} role="coordinator" />
@@ -72,7 +72,19 @@ export function TeamPanel({ team, error, onRun, running }: Props) {
             </ul>
           </li>
         </ul>
-        {dynamic && (
+        {team.helper_agents.length > 0 && (
+          <>
+            <h4 className="eyebrow">{crews ? "Helpers for leads without a crew" : "Helpers, up to 3 per specialist"}</h4>
+            <ul className="roster">
+              {team.helper_agents.map((a) => (
+                <li key={a.key}>
+                  <AgentRow agent={a} role="specialist" />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {crews && (
           <p className="small muted">
             The orchestrator reads the RFP and engages only the leads it needs. Leads with a crew brief
             their own specialists in parallel.

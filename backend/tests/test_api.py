@@ -43,7 +43,8 @@ def test_dummy_run_fills_canvas(client):
     types = {b["type"] for b in blocks}
     assert {"callout", "markdown", "status", "table", "kv", "file"} <= types
     statuses = [b["props"]["state"] for b in blocks if b["type"] == "status"]
-    assert statuses == ["done"] * 4
+    members = client.get("/api/teams/deal-desk").json()["members"]
+    assert statuses == ["done"] * len(members)
 
 
 def _pdf() -> bytes:
@@ -83,7 +84,8 @@ def test_upload_rejects_non_pdf(client):
 
 def test_team_detail_shows_leads_and_their_specialists(client):
     detail = client.get("/api/teams/rfp-solutioning").json()
-    assert detail["mode"] == "dynamic" and detail["input_pdf"]
+    assert detail["mode"] == "crews" and detail["input_pdf"]
+    assert {h["key"] for h in detail["helper_agents"]} == {"document-analyst", "section-writer", "fact-checker"}
     assert "finops-analyst" in detail["sub_agents"]
 
 

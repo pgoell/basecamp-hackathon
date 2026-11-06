@@ -1,6 +1,6 @@
 # Basecamp: agent teams
 
-Teams of agents on [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/multi-agent). In the Deal Desk team a coordinator hands an RFP to four specialists (pricing, legal, technical fit, competitive intel), each with its own skill, and turns their answers into a Word document. Each run fills a live canvas in the web app.
+Teams of agents on the Claude Messages API, orchestrated in our own code (`backend/rfp_orchestrator`). In the Deal Desk team a coordinator hands an RFP to five specialists (requirements, pricing, legal, technical fit, competitive intel), each with its own skill; every specialist may send out up to three helpers (document analyst, section writer, fact checker). The coordinator turns their answers into a Word document. Each run fills a live canvas in the web app: one status per agent, helpers included. Details: [`backend/ORCHESTRATION.md`](./backend/ORCHESTRATION.md).
 
 Live at https://basecamp.pgoell.com (shared password; ask Pascal).
 
@@ -9,24 +9,23 @@ Live at https://basecamp.pgoell.com (shared password; ask Pascal).
 ```
 backend/    Python, FastAPI.
   catalog/           agents (agent.yaml + system.md), teams, skills, knowledge. Edit here.
-  app/setup.py       creates or updates every team's agents, writes swarm.json
+  rfp_orchestrator/  the engine: agent loops, delegation, limits, workspace, docx output
+  app/hierarchy.py   runs a catalog team on the engine and turns its events into canvas blocks
   app/main.py        the API under /api
-  app/runs.py        runs a team and turns its session events into canvas blocks
+  app/runs.py        run context and canvas helpers shared by the orchestrators
   app/canvas/        canvas blocks and tools: versioned, a stale write gets 409
   app/store.py       versioned JSON docs in SQLite under DATA_DIR (canvas, slides)
-  swarm.json         agent and environment ids by catalog key (not secret, committed)
+                     run workspaces (inputs/, work/, final/) under DATA_DIR/runs/
 frontend/   Bun and React. server.ts serves the page and forwards /api.
   src/blocks/        one component per canvas block type
 docs/hackathon/  scenario cards and stretch goals
 ```
 
-## RFP Solutioning (PDF in, dynamic staffing, nested sub-agents)
+## RFP Solutioning (PDF in, dynamic staffing, crews per lead)
 
-Upload an RFP as a PDF. The **RFP Orchestrator** reads it, writes a staffing analysis, and engages only the leads the bid needs from a pool: Cloud Architect, Data Engineering Lead, Delivery Lead, Pricing, Legal, Competitive Intel. Leads with a crew of their own brief their specialists in parallel: the Cloud Architect runs a Network Engineer, a Cloud Security Engineer and a FinOps Analyst; the Data Engineering Lead runs a Pipeline Engineer, a Data Governance Specialist and an Analytics Engineer. The canvas shows the whole tree live in one `org` block.
+Upload an RFP as a PDF. The **RFP Orchestrator** reads it, writes a staffing analysis, and delegates only to the leads the bid needs from a pool: Cloud Architect, Data Engineering Lead, Delivery Lead, Pricing, Legal, Competitive Intel. A lead with `members` in its `agent.yaml` delegates to that crew instead of the team's helpers: the Cloud Architect runs a Network Engineer, a Cloud Security Engineer and a FinOps Analyst; the Data Engineering Lead runs a Pipeline Engineer, a Data Governance Specialist and an Analytics Engineer. The other leads may send out the team's helpers. `app/hierarchy.py: build_roster` wires this, and the engine's limits still apply (at most 3 children per lead). The canvas shows the whole tree live in one `org` block, built from the engine's parent/child events.
 
-Managed Agents delegates only one level deep: an agent with a roster cannot sit on another agent's roster. So the team is `mode: dynamic` (`backend/catalog/teams/rfp-solutioning.yaml`). Its coordinator has no roster but one custom tool, `engage_lead`. Each call makes the backend open a **child session** on that lead, with the lead as coordinator of its own `members` (set in `agent.yaml`), and the lead's report goes back as the tool result (`app/runs.py: dynamic, run_lead`). Each session has a hard budget: `budget_usd` for the orchestrator, `lead_budget_usd` for each lead.
-
-The PDF goes to `POST /api/rfps`, which stores it under `DATA_DIR/rfps` and pulls out its text with pypdf. A managed run sends it to the Files API and attaches it to every session, both as a document in the first message and mounted at `/mnt/session/uploads/rfp.pdf`.
+The PDF goes to `POST /api/rfps`, which stores it under `DATA_DIR/rfps` and pulls out its text with pypdf. A run writes that text to the run's `inputs/`. A scanned PDF without a text layer gives no text.
 
 ## PowerPointless (slides)
 
@@ -37,7 +36,7 @@ backend/app/slides/   presentations, uploads, chats, agent tools, PDF (Playwrigh
 frontend/src/slides/  list, editor, canvas (react-moveable), chat, print page
 ```
 
-Data lives in `DATA_DIR` (default `backend/data/`, gitignored). The PDF needs the frontend running: the backend's Chromium prints `FRONTEND_INTERNAL_URL/print/<id>` (default `http://localhost:3000`). Locally, install Chromium once with `uv run playwright install chromium`.
+Data lives in `DATA_DIR` (default `backend/data/`, gitignored): presentations in the shared store `basecamp.db`, pictures in `uploads/`. The PDF needs the frontend running: the backend's Chromium prints `FRONTEND_INTERNAL_URL/print/<id>` (default `http://localhost:3000`). Locally, install Chromium once with `uv run playwright install chromium`.
 
 Parts are ported from blattwerk (pgoell's worksheet editor): the element box, undo, the version check on saves, the plain-word schema errors and the Chromium PDF export.
 
@@ -69,18 +68,13 @@ bun install
 bun dev                                # http://localhost:3000
 ```
 
-The backend uses the agents in `backend/swarm.json`, which the whole team shares. `ORCHESTRATOR=dummy` fills the canvas without calling a model. `docker compose up --build` runs both images on the same ports with the dummy.
+Runs use `ORCHESTRATOR=hierarchy` (the default) and need `ANTHROPIC_API_KEY`. `ORCHESTRATOR=dummy` fills the canvas without calling a model. `docker compose up --build` runs both images on the same ports with the dummy. One team in the terminal, without the web app: `uv run python -m app.hierarchy deal-desk`.
 
 Check the backend with `uv run ruff check . && uv run python -m app.catalog && uv run pytest`.
 
 ## Change the agents
 
-Edit `backend/catalog/`: an agent is `agents/<key>/agent.yaml` plus `system.md`, a team is `teams/<key>.yaml` naming a coordinator and members. One agent can serve several teams. Then either:
-
-- run `uv run python -m app.setup` in `backend/` and commit `swarm.json` if it changed, or
-- start the **setup-agents** workflow on GitHub (Actions tab). It runs the same script with the team's key, commits `swarm.json` and deploys.
-
-Setup updates the agents in place, so their ids stay the same. Delete an entry from `swarm.json` to get a fresh one.
+Edit `backend/catalog/`: an agent is `agents/<key>/agent.yaml` plus `system.md`, a team is `teams/<key>.yaml` naming a coordinator, members and helpers. One agent can serve several teams. There is no setup step: the next run reads the catalog. Limits of the tree (children per specialist, total agents, parallel requests) are set in `rfp_orchestrator/config.py` or by env var, see ORCHESTRATION.md.
 
 ## Deploy
 

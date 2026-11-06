@@ -19,7 +19,7 @@ export function App() {
   const [canvasId, setCanvasId] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [swarm, setSwarm] = useState<boolean | null>(null);
+  const [engine, setEngine] = useState<string | null | false>(null);
   const { team, error: teamError } = useTeam(teamKey);
   const roles = useMemo(() => rolesOf(team), [team]);
 
@@ -33,8 +33,8 @@ export function App() {
       .catch((e: Error) => setError(e.message));
     api
       .health()
-      .then((h) => setSwarm(h.swarm))
-      .catch(() => setSwarm(false));
+      .then((h) => setEngine(h.orchestrator))
+      .catch(() => setEngine(false));
   }, []);
 
   async function run(body: RunInput) {
@@ -68,7 +68,7 @@ export function App() {
               onClick={() => setTeamKey(t.key)}
             >
               {t.name}
-              {t.mode === "dynamic" && <span className="menu-new">new</span>}
+              {t.mode === "crews" && <span className="menu-new">new</span>}
             </button>
           ))}
         </nav>
@@ -76,9 +76,9 @@ export function App() {
           <a className="menu-item" href="/slides">
             PowerPointless ↗
           </a>
-          <span className="sys" title={swarm ? "agents are set up" : "agents not set up (swarm.json)"}>
-            <span className={`led ${swarm ? "led-on" : swarm === false ? "led-error" : "led-off"}`} />
-            <span className="mono small">{swarm ? "swarm ready" : "no swarm"}</span>
+          <span className="sys" title={engine ? `orchestrator: ${engine}` : "backend not reachable"}>
+            <span className={`led ${engine ? "led-on" : engine === false ? "led-error" : "led-off"}`} />
+            <span className="mono small">{engine ? engine : engine === false ? "offline" : "…"}</span>
           </span>
           <Clock />
         </span>
@@ -93,7 +93,7 @@ export function App() {
         </main>
       </RolesContext.Provider>
       <footer className="statusbar mono tiny">
-        <span>Claude Managed Agents</span>
+        <span>Claude Messages API · hierarchical orchestrator</span>
         <span>{team ? `${team.name} · ${team.member_agents.length} on the roster` : "—"}</span>
         <span>{canvasId ? `canvas #${canvasId}` : "no run yet"}</span>
       </footer>

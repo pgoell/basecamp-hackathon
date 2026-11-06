@@ -18,13 +18,15 @@ export interface TeamSummary {
   description: string;
   coordinator: string;
   members: string[];
-  mode: "static" | "dynamic";
+  /** "crews": some members run specialists of their own. */
+  mode: "crews" | "helpers";
 }
 
 export interface TeamDetail extends TeamSummary {
   coordinator_agent: Agent;
   member_agents: Agent[];
   sub_agents: Record<string, Agent>;
+  helper_agents: Agent[];
   input_label: string;
   input_pdf: boolean;
   sample_input: string | null;
@@ -62,7 +64,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ ok: boolean; swarm: boolean }>("/api/health"),
+  health: () => request<{ ok: boolean; orchestrator: string; active_runs: number }>("/api/health"),
   teams: () => request<TeamSummary[]>("/api/teams"),
   team: (key: string) => request<TeamDetail>(`/api/teams/${encodeURIComponent(key)}`),
   canvas: (id: number) => request<Canvas>(`/api/canvases/${id}`),

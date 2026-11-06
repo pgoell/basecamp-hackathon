@@ -14,6 +14,7 @@ export function rolesOf(team: TeamDetail | null): Record<string, Role> {
   const roles: Record<string, Role> = { [team.coordinator]: "coordinator" };
   for (const a of team.member_agents) roles[a.key] = "lead";
   for (const key of Object.keys(team.sub_agents)) roles[key] = "specialist";
+  for (const a of team.helper_agents) roles[a.key] = "specialist";
   return roles;
 }
 

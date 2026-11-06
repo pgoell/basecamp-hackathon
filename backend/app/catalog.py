@@ -4,15 +4,16 @@ Layout (all under ``backend/catalog``)::
 
     agents/<agent-key>/agent.yaml   model, skills, tools, description
     agents/<agent-key>/system.md    the agent's system prompt
-    skills/<skill-key>/SKILL.md     custom skills (uploaded via the Skills API)
-    teams/<team-key>.yaml           coordinator + members + kickoff
-    knowledge/                      documents teams inline into the kickoff
+    skills/<skill-key>/SKILL.md     custom skills (injected into the agent's system prompt)
+    teams/<team-key>.yaml           coordinator + members + helpers + kickoff
+    knowledge/                      documents teams hand to the agents
 
 Agents are defined once and referenced by key from any number of teams, so a
 single "legal-reviewer" serves the Deal Desk and the Legal Review team alike.
 
-Check it with ``uv run python -m app.catalog``. ``app.setup`` creates the
-agents from it.
+Check it with ``uv run python -m app.catalog``. ``app.hierarchy`` runs a team
+from it: the coordinator delegates to the members, each member may send out up
+to three helpers (limits in ``rfp_orchestrator.config``).
 """
 
 from __future__ import annotations
@@ -53,9 +54,10 @@ class AgentSpec(BaseModel):
     skills: list[str] = Field(default_factory=list)
     tools: ToolSettings = Field(default_factory=ToolSettings)
     tags: list[str] = Field(default_factory=list)
-    # An agent with members is a lead: setup makes it the coordinator of its own
-    # roster. Leads run in their own session, engaged by a dynamic team's
-    # orchestrator, because Managed Agents delegates only one level deep.
+    # Reasoning effort; unset = by role (coordinator high, member medium, helper low).
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
+    # An agent with members is a lead: in a team it delegates to these
+    # specialists instead of the team's helpers (the third level).
     members: list[str] = Field(default_factory=list)
 
     @property
@@ -97,14 +99,10 @@ class TeamSpec(BaseModel):
     description: str
     coordinator: str
     members: list[str]
-    # static: the coordinator delegates to its members as a roster.
-    # dynamic: members are a pool of leads; the coordinator picks the ones it
-    # needs through the engage_lead tool and each runs in its own session.
-    mode: Literal["static", "dynamic"] = "static"
+    # Agents every member may delegate to (third level). Empty = members work alone.
+    helpers: list[str] = Field(default_factory=list)
     workflows: bool = False
     budget_usd: float | None = None
-    lead_budget_usd: float | None = None  # per lead session, dynamic teams only
-    max_leads: int = 6  # engage_lead calls allowed per run, dynamic teams only
     input: TeamInput = Field(default_factory=TeamInput)
     context: list[str] = Field(default_factory=list)
     kickoff: str
@@ -204,20 +202,18 @@ def _validate(catalog: Catalog) -> None:
         if len(agent.members) > 20:  # Managed Agents roster limit
             errors.append(f"agent '{agent.key}': at most 20 members")
     for team in catalog.teams.values():
-        for ref in [team.coordinator, *team.members]:
+        for ref in [team.coordinator, *team.members, *team.helpers]:
             if ref not in catalog.agents:
                 errors.append(f"team '{team.key}': unknown agent '{ref}'")
         if team.coordinator in team.members:
             errors.append(f"team '{team.key}': coordinator cannot also be a member")
         if len(set(team.members)) != len(team.members):
             errors.append(f"team '{team.key}': duplicate members")
-        if team.mode == "static":
-            for ref in team.members:
-                if ref in catalog.agents and catalog.agents[ref].members:
-                    errors.append(f"team '{team.key}': member '{ref}' is a lead; use mode: dynamic")
+        if overlap := set(team.helpers) & {team.coordinator, *team.members}:
+            errors.append(f"team '{team.key}': helpers cannot also be coordinator or members: {sorted(overlap)}")
         if team.coordinator in catalog.agents and catalog.agents[team.coordinator].members:
             errors.append(f"team '{team.key}': coordinator '{team.coordinator}' cannot have members of its own")
-        if not 1 <= len(team.members) <= 20:  # Managed Agents roster limit
+        if not 1 <= len(team.members) <= 20:
             errors.append(f"team '{team.key}': needs 1-20 members")
         for doc in [team.input.sample, *team.context]:
             if doc and not (catalog.knowledge_dir / doc).is_file():

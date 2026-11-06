@@ -27,4 +27,4 @@ A presentation's `doc` is JSON, checked against `backend/app/slides/schema.json`
 - `POST /chats/{id}/messages {text, slide?}` answers an SSE stream: `{type: text, text}`, `{type: tool, name, input}`,
   `{type: tool_result, name, ok, text}`, `{type: doc, version}`, `{type: error, message}`, `{type: done}`.
 
-Data lives in `DATA_DIR` (default `backend/data`): `slides.db` and `uploads/`.
+Data lives in `DATA_DIR` (default `backend/data`): presentations are rows of kind `slides` in the shared store (`basecamp.db`, see `backend/app/store.py`), beside the tables `chats` and `messages`; pictures in `uploads/`. An old `slides.db` moves in on the first start and is renamed `slides.db.migrated`.

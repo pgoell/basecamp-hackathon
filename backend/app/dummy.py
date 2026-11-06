@@ -34,7 +34,7 @@ class DummyOrchestrator:
         self.step = step_seconds
 
     def run(self, ctx: RunContext) -> None:
-        if ctx.team.mode == "dynamic":
+        if any(ctx.catalog.agents[m].members for m in ctx.team.members):
             return self.run_dynamic(ctx)
         call = ctx.call_tool
         team = ctx.team
@@ -219,8 +219,6 @@ class DummyOrchestrator:
                     "items": [
                         {"label": "Team", "value": team.name},
                         {"label": "Leads engaged", "value": f"{len(picked)} of {len(team.members)}"},
-                        {"label": "Budget", "value": f"${team.budget_usd:g}" if team.budget_usd else "-"},
-                        {"label": "Per lead", "value": f"${team.lead_budget_usd:g}" if team.lead_budget_usd else "-"},
                     ]
                 },
             }

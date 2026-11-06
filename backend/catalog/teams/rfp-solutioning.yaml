@@ -1,12 +1,11 @@
 name: RFP Solutioning
 description: >-
   Upload an RFP PDF. The orchestrator reads it, decides which leads the bid
-  needs, and engages them in parallel. Leads such as the Cloud Architect and
-  the Data Engineering Lead run their own specialists. Proposal (docx) out.
+  needs, and delegates to them in parallel. Leads such as the Cloud Architect
+  and the Data Engineering Lead run their own specialists. Proposal (docx) out.
 coordinator: rfp-orchestrator
-# The pool of leads the orchestrator may engage. Leads with members of their
-# own run in their own session as coordinators (see app/runs.py: dynamic).
-mode: dynamic
+# The pool of leads. A lead with members of its own (agent.yaml: members)
+# delegates to that crew; the others may send out the helpers below.
 members:
   - cloud-architect
   - data-engineer
@@ -14,9 +13,10 @@ members:
   - pricing-specialist
   - legal-reviewer
   - competitive-intel
-budget_usd: 25          # the orchestrator's session
-lead_budget_usd: 8      # each lead's session, sub-specialists included
-max_leads: 8            # engage_lead calls per run, follow-ups included
+helpers:
+  - document-analyst
+  - section-writer
+  - fact-checker
 input:
   label: RFP
   pdf: true
@@ -25,6 +25,6 @@ context:
   - product-overview.md
   - past-wins.json
 kickoff: |
-  An RFP has just landed. Read it, write your staffing analysis, engage the
-  leads it needs in parallel with engage_lead, synthesise their reports, and
-  produce the proposal response as a Word document.
+  An RFP has just landed. Read it, write your staffing analysis, delegate to
+  the leads it needs in parallel, synthesise their reports, and produce the
+  proposal response document.
