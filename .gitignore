@@ -1,0 +1,19 @@
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+backend/.state/
+
+# node
+node_modules/
+frontend/dist/
+
+# env / local
+.env
+.env.*
+!.env.example
+.DS_Store
+outputs/
+*.tsbuildinfo

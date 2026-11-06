@@ -1,0 +1,26 @@
+name: Deal Desk
+description: >-
+  Inbound RFP in, branded proposal response (docx) out. A senior partner
+  orchestrates pricing, legal, technical-fit and competitive specialists.
+coordinator: deal-desk-partner
+members:
+  - pricing-specialist
+  - legal-reviewer
+  - technical-fit
+  - competitive-intel
+  # - critic            # uncomment to add an adversarial review pass
+# Dynamic workflows let the coordinator fan work out over many items. This team
+# has a fixed roster of four lanes, so they are off to keep cost predictable.
+workflows: false
+budget_usd: 25          # hard per-session spend cap
+input:
+  label: RFP
+  sample: rfp-acme-corp.md
+context:                 # inlined into every kickoff after the input
+  - past-wins.json
+  - product-overview.md
+kickoff: |
+  An RFP has just landed. Run the standard Deal Desk process:
+  read it yourself, delegate to every specialist in parallel, synthesise their
+  replies, and produce the final proposal response as a Word document.
+  Move fast - the RFP deadline is real.
