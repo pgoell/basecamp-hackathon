@@ -38,6 +38,7 @@ export function App() {
     <div className="layout">
       <header className="topbar">
         <strong>Basecamp</strong>
+        <a href="/slides">PowerPointless</a>
         <nav>
           {teams.map((t) => (
             <button

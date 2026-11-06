@@ -64,9 +64,7 @@ def _change(canvas_id: int, version: int, fn: Callable[[Canvas], None]) -> Canva
     return _canvas(store.write(canvas_id, version, doc=doc))
 
 
-def add_block(
-    canvas_id: int, version: int, block: BlockInput, after: str | None = None
-) -> tuple[Canvas, str]:
+def add_block(canvas_id: int, version: int, block: BlockInput, after: str | None = None) -> tuple[Canvas, str]:
     new = _as_block(f"blk_{uuid.uuid4().hex[:10]}", block)
 
     def fn(c: Canvas) -> None:

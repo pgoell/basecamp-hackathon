@@ -49,9 +49,7 @@ def connect() -> sqlite3.Connection:
     """A connection in autocommit mode, rows as dicts by column. FastAPI may open it in one
     thread and use it in another, never in two at once."""
     DATA.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(
-        DATA / "basecamp.db", isolation_level=None, timeout=10, check_same_thread=False
-    )
+    con = sqlite3.connect(DATA / "basecamp.db", isolation_level=None, timeout=10, check_same_thread=False)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     con.execute("PRAGMA journal_mode = WAL")
@@ -108,9 +106,7 @@ def create(kind: str, title: str, doc: dict, con: sqlite3.Connection | None = No
 
 
 def get(doc_id: int, kind: str | None = None, con: sqlite3.Connection | None = None) -> dict:
-    row = _with(
-        con, lambda c: c.execute(f"SELECT {COLUMNS} FROM docs WHERE id = ?", (doc_id,)).fetchone()
-    )
+    row = _with(con, lambda c: c.execute(f"SELECT {COLUMNS} FROM docs WHERE id = ?", (doc_id,)).fetchone())
     if row is None or (kind and row["kind"] != kind):
         raise HTTPException(404, f"No {kind or 'doc'} with id {doc_id}.")
     return _public(row)

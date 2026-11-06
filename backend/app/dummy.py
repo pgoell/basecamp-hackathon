@@ -26,9 +26,7 @@ class DummyOrchestrator:
 
         def update(block_id: str, block: dict) -> None:
             nonlocal version
-            version = call(
-                "update_block", {"version": version, "block_id": block_id, "block": block}
-            )["version"]
+            version = call("update_block", {"version": version, "block_id": block_id, "block": block})["version"]
 
         add(
             {
@@ -36,8 +34,7 @@ class DummyOrchestrator:
                 "title": "Dummy run",
                 "props": {
                     "tone": "warning",
-                    "text": "This canvas was written by the DummyOrchestrator. "
-                    "No model was called.",
+                    "text": "This canvas was written by the DummyOrchestrator. No model was called.",
                 },
             }
         )
@@ -96,8 +93,7 @@ class DummyOrchestrator:
                 "props": {
                     "columns": ["Specialist", "Model", "Verdict"],
                     "rows": [
-                        [ctx.catalog.agents[k].name, ctx.catalog.agents[k].model, "placeholder"]
-                        for k in team.members
+                        [ctx.catalog.agents[k].name, ctx.catalog.agents[k].model, "placeholder"] for k in team.members
                     ],
                 },
             }

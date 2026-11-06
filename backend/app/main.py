@@ -22,6 +22,7 @@ from .canvas import store as canvases
 from .canvas.models import block_input_adapter
 from .canvas.tools import TOOLS, dispatch
 from .catalog import CATALOG, AgentSpec, Catalog, CatalogError, load_catalog
+from .slides import chat, pdf, presentations, uploads
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,8 @@ ORCHESTRATOR = os.environ.get("ORCHESTRATOR", "managed")
 PING_SECONDS = 20
 
 app = FastAPI()
+for module in (presentations, uploads, chat, pdf):
+    app.include_router(module.router)
 # Runs outlive the request that started them; keep a reference so they finish.
 tasks: set[asyncio.Task] = set()
 
@@ -169,9 +172,7 @@ def stream_canvas(canvas_id: int) -> StreamingResponse:
             tick = store.wait(seen, PING_SECONDS)
             quiet, seen = tick == seen, tick
 
-    return StreamingResponse(
-        events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
-    )
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
 
 @app.post("/api/teams/{team_key}/runs", status_code=202)

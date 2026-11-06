@@ -20,9 +20,33 @@ frontend/   Bun and React. server.ts serves the page and forwards /api.
 docs/hackathon/  scenario cards and stretch goals
 ```
 
+## PowerPointless (slides)
+
+A slide editor at `/slides`: 16:9 slides with text, shapes, images and tables, PDF download, and a chat at the side whose agent (Claude Opus 5.5) edits the deck through tools. Several chats per presentation; no user accounts. Details in [`docs/slides.md`](./docs/slides.md).
+
+```
+backend/app/slides/   presentations, uploads, chats, agent tools, PDF (Playwright Chromium)
+frontend/src/slides/  list, editor, canvas (react-moveable), chat, print page
+```
+
+Data lives in `DATA_DIR` (default `backend/data/`, gitignored). The PDF needs the frontend running: the backend's Chromium prints `FRONTEND_INTERNAL_URL/print/<id>` (default `http://localhost:3000`). Locally, install Chromium once with `uv run playwright install chromium`.
+
+Parts are ported from blattwerk (pgoell's worksheet editor): the element box, undo, the version check on saves, the plain-word schema errors and the Chromium PDF export.
+
 ## Run it locally
 
 You need [uv](https://docs.astral.sh/uv/) and [Bun](https://bun.sh).
+
+Quick start:
+
+```bash
+scripts/setup.sh    # uv sync + bun install, creates backend/.env
+                    # put your ANTHROPIC_API_KEY in backend/.env
+scripts/dev.sh      # backend on :8000 and frontend on :3000; Ctrl+C stops both
+scripts/check.sh    # the same checks CI runs on pull requests
+```
+
+Or by hand:
 
 ```bash
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > backend/.env    # gitignored

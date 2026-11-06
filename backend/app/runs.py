@@ -46,8 +46,7 @@ def swarm() -> dict:
 
 def kickoff(ctx: RunContext) -> str:
     docs = [f"=====  DOCUMENT: {ctx.team.input.label}  =====\n{ctx.input_text}"] + [
-        f"=====  DOCUMENT: {name}  =====\n{ctx.catalog.read_knowledge(name)}"
-        for name in ctx.team.context
+        f"=====  DOCUMENT: {name}  =====\n{ctx.catalog.read_knowledge(name)}" for name in ctx.team.context
     ]
     return ctx.team.kickoff.strip() + "\n\n" + "\n\n".join(docs)
 
@@ -77,10 +76,7 @@ async def managed(ctx: RunContext) -> None:
     ids = swarm()
     coordinator_id = ids.get("agents", {}).get(ctx.team.coordinator)
     if not coordinator_id:
-        raise RuntimeError(
-            f"No agent id for '{ctx.team.coordinator}' in swarm.json. "
-            "Run the setup-agents workflow."
-        )
+        raise RuntimeError(f"No agent id for '{ctx.team.coordinator}' in swarm.json. Run the setup-agents workflow.")
     client = AsyncAnthropic()
     session = await client.beta.sessions.create(
         agent=coordinator_id, environment_id=ids["environment_id"], title=f"{ctx.team.name} run"

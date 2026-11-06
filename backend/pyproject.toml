@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "anthropic>=2.5",
     "fastapi[standard]>=0.115",
+    "jsonschema>=4.26.0",
     "playwright>=1.64.1",
     "pypdf>=7.0.0",
     "pyyaml>=6.0",
@@ -20,7 +21,7 @@ dev = [
 package = false
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]

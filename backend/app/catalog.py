@@ -139,9 +139,7 @@ def load_catalog(root: Path) -> Catalog:
     if not root.is_dir():
         raise CatalogError(f"catalog directory not found: {root}")
 
-    skills: dict[str, SkillSpec] = {
-        key: SkillSpec(key=key, source="anthropic") for key in ANTHROPIC_SKILLS
-    }
+    skills: dict[str, SkillSpec] = {key: SkillSpec(key=key, source="anthropic") for key in ANTHROPIC_SKILLS}
     for skill_md in sorted((root / "skills").glob("*/SKILL.md")):
         key = skill_md.parent.name
         skills[key] = SkillSpec(
@@ -158,9 +156,7 @@ def load_catalog(root: Path) -> Catalog:
         if not system_md.exists():
             raise CatalogError(f"agent '{key}': missing system.md")
         try:
-            agents[key] = AgentSpec(
-                key=key, system=system_md.read_text().strip(), **_read_yaml(agent_yaml)
-            )
+            agents[key] = AgentSpec(key=key, system=system_md.read_text().strip(), **_read_yaml(agent_yaml))
         except ValidationError as e:
             raise CatalogError(f"agent '{key}': {e}") from e
 
@@ -180,11 +176,7 @@ def load_catalog(root: Path) -> Catalog:
 def _validate(catalog: Catalog) -> None:
     errors: list[str] = []
     for agent in catalog.agents.values():
-        errors += [
-            f"agent '{agent.key}': unknown skill '{s}'"
-            for s in agent.skills
-            if s not in catalog.skills
-        ]
+        errors += [f"agent '{agent.key}': unknown skill '{s}'" for s in agent.skills if s not in catalog.skills]
     for team in catalog.teams.values():
         for ref in [team.coordinator, *team.members]:
             if ref not in catalog.agents:

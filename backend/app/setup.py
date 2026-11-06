@@ -64,9 +64,7 @@ def build(client: Anthropic, swarm: dict, catalog: Catalog) -> None:
     for name in sorted({s for a in used for s in a.skills}):
         skill = catalog.skills[name]
         if skill.source == "custom" and name not in swarm["skills"]:
-            made = client.skills.create(
-                display_name=f"Basecamp {name}", files=files_from_dir(str(skill.path))
-            )
+            made = client.skills.create(display_name=f"Basecamp {name}", files=files_from_dir(str(skill.path)))
             swarm["skills"][name] = made.id
             print(f"  uploaded skill {name} {made.id}")
 
@@ -89,9 +87,7 @@ def build(client: Anthropic, swarm: dict, catalog: Catalog) -> None:
         }
 
     for key in sorted(members):
-        swarm["agents"][key] = upsert_agent(
-            client, swarm["agents"].get(key), **config(catalog.agents[key], "member")
-        )
+        swarm["agents"][key] = upsert_agent(client, swarm["agents"].get(key), **config(catalog.agents[key], "member"))
     for team in catalog.teams.values():
         roster = [{"type": "agent", "id": swarm["agents"][m]} for m in team.members]
         swarm["agents"][team.coordinator] = upsert_agent(
