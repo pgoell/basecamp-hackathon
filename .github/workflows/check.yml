@@ -14,9 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - name: Backend imports
+      - name: Backend lint, catalog and tests
         working-directory: backend
-        run: uv sync --frozen && ANTHROPIC_API_KEY=x uv run python -c "import app.main"
+        run: |
+          uv sync --frozen
+          uv run ruff check .
+          uv run python -m app.catalog
+          ANTHROPIC_API_KEY=x uv run pytest -q
       - uses: oven-sh/setup-bun@v2
       - name: Frontend builds
         working-directory: frontend

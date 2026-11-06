@@ -1,0 +1,10 @@
+name: Legal Reviewer
+description: >-
+  Reviews an RFP, contract or customer document against our standard legal
+  positions and flags each deviation with a counter-position and severity.
+  Hand it the full document text.
+model: claude-sonnet-5-5
+skills: [legal-checklist]
+tools:
+  web: false
+tags: [legal, deal-desk, legal-review]

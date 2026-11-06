@@ -1,0 +1,9 @@
+name: Technical Fit Specialist
+description: >-
+  Decides whether our product actually does what an RFP asks for. Hand it the
+  RFP text and product-overview.md; it returns a fit assessment and score.
+model: claude-sonnet-5-5
+skills: []
+tools:
+  web: false
+tags: [technical, deal-desk]

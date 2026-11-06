@@ -1,0 +1,10 @@
+name: Pricing Specialist
+description: >-
+  Recommends commercial terms for an inbound RFP: list price, discount band,
+  term and payment structure, and which concessions to accept or refuse.
+  Hand it the RFP text and any comparable deals.
+model: claude-sonnet-5-5
+skills: [pricing-playbook]
+tools:
+  web: false
+tags: [commercial, deal-desk]

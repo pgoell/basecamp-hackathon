@@ -1,0 +1,9 @@
+name: Competitive Intel Analyst
+description: >-
+  Identifies which competitors are likely in a deal and how we should position
+  against them. Fast, low-cost lookup against the battlecard library.
+model: claude-haiku-5-5
+skills: [competitive-intel]
+tools:
+  web: false
+tags: [competitive, deal-desk]

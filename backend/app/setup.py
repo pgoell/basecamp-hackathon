@@ -1,22 +1,22 @@
-"""Create or update the environment, skills and agents, and save their ids.
+"""Create or update the environment, skills and agents of every catalog team, and save their ids.
 
     uv run python -m app.setup
 
 Reads the ids in swarm.json and updates those agents in place, so running it
-again after you change app/agents.py keeps the same ids. Commit swarm.json:
-the ids are not secret, and the deployed backend reads them from it.
+again after you change backend/catalog/ keeps the same ids. Members are made
+first, then each team's coordinator with its members as its roster. Commit
+swarm.json: the ids are not secret, and the deployed backend reads them from it.
 """
 
 import json
-from pathlib import Path
 
 from anthropic import Anthropic
 from anthropic.lib import files_from_dir
 
-from app.agents import COORDINATOR, METADATA, SPECIALISTS, TOOLS
+from app.catalog import CATALOG, AgentSpec, Catalog, load_catalog
+from app.runs import SWARM_FILE
 
-ROOT = Path(__file__).resolve().parent.parent
-SWARM = ROOT / "swarm.json"
+METADATA = {"hackathon": "partner-basecamp-2026"}
 
 
 def upsert_agent(client: Anthropic, agent_id: str | None, **config) -> str:
@@ -32,19 +32,20 @@ def upsert_agent(client: Anthropic, agent_id: str | None, **config) -> str:
 
 def main() -> None:
     client = Anthropic()
-    swarm = json.loads(SWARM.read_text()) if SWARM.exists() else {}
-    swarm.setdefault("specialists", {})
+    catalog = load_catalog(CATALOG)
+    swarm = json.loads(SWARM_FILE.read_text()) if SWARM_FILE.exists() else {}
     swarm.setdefault("skills", {})
+    swarm.setdefault("agents", {})
 
     try:
-        build(client, swarm)
+        build(client, swarm, catalog)
     finally:
         # Also after a failure, so a second run reuses what the first made.
-        SWARM.write_text(json.dumps(swarm, indent=2) + "\n")
-    print(f"Saved ids to {SWARM.name}. Commit it.")
+        SWARM_FILE.write_text(json.dumps(swarm, indent=2) + "\n")
+    print(f"Saved ids to {SWARM_FILE.name}. Commit it.")
 
 
-def build(client: Anthropic, swarm: dict) -> None:
+def build(client: Anthropic, swarm: dict, catalog: Catalog) -> None:
     if "environment_id" not in swarm:
         env = client.beta.environments.create(
             name="specialist-swarm-env",
@@ -53,48 +54,48 @@ def build(client: Anthropic, swarm: dict) -> None:
         swarm["environment_id"] = env.id
         print(f"  created environment {env.id}")
 
+    coordinators = {t.coordinator for t in catalog.teams.values()}
+    members = {m for t in catalog.teams.values() for m in t.members} - coordinators
+    used = [catalog.agents[k] for k in sorted(members | coordinators)]
+
     # Skills keep their ids in swarm.json. The org shares one Skills API rate
     # limit and many skills, so look nothing up; titles must be unique in the
     # org, hence the prefix.
-    for spec in SPECIALISTS:
-        name = spec["skill"]
-        if name and name not in swarm["skills"]:
-            skill = client.skills.create(
-                display_name=f"Deal Desk {name}", files=files_from_dir(str(ROOT / "skills" / name))
-            )
-            swarm["skills"][name] = skill.id
-            print(f"  uploaded skill {name} {skill.id}")
+    for name in sorted({s for a in used for s in a.skills}):
+        skill = catalog.skills[name]
+        if skill.source == "custom" and name not in swarm["skills"]:
+            made = client.skills.create(display_name=f"Basecamp {name}", files=files_from_dir(str(skill.path)))
+            swarm["skills"][name] = made.id
+            print(f"  uploaded skill {name} {made.id}")
 
-    for spec in SPECIALISTS:
-        skills = (
-            [{"type": "custom", "skill_id": swarm["skills"][spec["skill"]], "version": "latest"}]
-            if spec["skill"]
-            else []
-        )
-        swarm["specialists"][spec["key"]] = upsert_agent(
+    def config(agent: AgentSpec, role: str) -> dict:
+        skills = [
+            {"type": "custom", "skill_id": swarm["skills"][s], "version": "latest"}
+            if catalog.skills[s].source == "custom"
+            else {"type": "anthropic", "skill_id": s}
+            for s in agent.skills
+        ]
+        web = [{"name": n, "enabled": agent.tools.web} for n in ("web_search", "web_fetch")]
+        return {
+            "name": agent.name,
+            "model": agent.model,
+            "system": agent.system,
+            "description": agent.description,
+            "tools": [{"type": "agent_toolset_20260401", "configs": web}],
+            "skills": skills,
+            "metadata": {**METADATA, "role": role, "key": agent.key},
+        }
+
+    for key in sorted(members):
+        swarm["agents"][key] = upsert_agent(client, swarm["agents"].get(key), **config(catalog.agents[key], "member"))
+    for team in catalog.teams.values():
+        roster = [{"type": "agent", "id": swarm["agents"][m]} for m in team.members]
+        swarm["agents"][team.coordinator] = upsert_agent(
             client,
-            swarm["specialists"].get(spec["key"]),
-            name=spec["name"],
-            model=spec["model"],
-            system=spec["system"],
-            tools=TOOLS,
-            skills=skills,
-            metadata={**METADATA, "role": spec["key"]},
+            swarm["agents"].get(team.coordinator),
+            **config(catalog.agents[team.coordinator], "coordinator"),
+            multiagent={"type": "coordinator", "agents": roster},
         )
-
-    swarm["coordinator_id"] = upsert_agent(
-        client,
-        swarm.get("coordinator_id"),
-        name=COORDINATOR["name"],
-        model=COORDINATOR["model"],
-        system=COORDINATOR["system"],
-        tools=TOOLS,
-        multiagent={
-            "type": "coordinator",
-            "agents": [{"type": "agent", "id": i} for i in swarm["specialists"].values()],
-        },
-        metadata={**METADATA, "role": "coordinator"},
-    )
 
 
 if __name__ == "__main__":
