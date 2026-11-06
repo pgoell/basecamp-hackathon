@@ -1,0 +1,10 @@
+name: Delivery Lead
+description: >-
+  Plans how we would deliver an RFP: phases, milestones, team shape, timeline
+  and delivery risks. Hand it the scope, deadlines and any constraints on
+  staffing or go-live.
+model: claude-sonnet-5-5
+skills: []
+tools:
+  web: false
+tags: [lead, delivery, rfp-solutioning]

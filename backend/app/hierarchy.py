@@ -23,7 +23,7 @@ from rfp_orchestrator import AgentSpec, Event, Limits, RunResult, run_team
 
 from . import store
 from .catalog import Catalog, TeamSpec
-from .runs import RunContext, add, update
+from .runs import RunContext, add, set_node, update
 
 RUNS_DIR = Path(os.environ.get("RUNS_DIR", store.DATA / "runs"))
 FILE_AREAS = ("final", "work")
@@ -59,9 +59,14 @@ def build_roster(catalog: Catalog, team: TeamSpec) -> dict[str, AgentSpec]:
             can_write_final=depth == 0,
         )
 
+    # A lead (an agent with members) delegates to its own crew; every other
+    # member may send out the team's helpers.
     roster = {team.coordinator: spec(team.coordinator, 0, team.members)}
-    roster |= {key: spec(key, 1, team.helpers) for key in team.members}
-    roster |= {key: spec(key, 2, []) for key in team.helpers}
+    for key in team.members:
+        crew = catalog.agents[key].members
+        roster[key] = spec(key, 1, crew or team.helpers)
+    third = set(team.helpers) | {m for key in team.members for m in catalog.agents[key].members}
+    roster |= {key: spec(key, 2, []) for key in sorted(third)}
     return roster
 
 
@@ -74,7 +79,11 @@ def build_task(ctx: RunContext) -> tuple[str, dict[str, str]]:
     name = input_filename(ctx.team)
     inputs = {name: ctx.input_text} | {doc: ctx.catalog.read_knowledge(doc) for doc in ctx.team.context}
     refs = ", ".join(f"inputs/{d}" for d in ctx.team.context) or "none"
-    task = f"{ctx.team.kickoff.strip()}\n\nThe {ctx.team.input.label} is at inputs/{name}.\nReference material: {refs}."
+    source = f" (text extracted from the uploaded PDF {ctx.rfp.filename}, {ctx.rfp.pages} pages)" if ctx.rfp else ""
+    task = (
+        f"{ctx.team.kickoff.strip()}\n\nThe {ctx.team.input.label} is at inputs/{name}{source}.\n"
+        f"Reference material: {refs}."
+    )
     return task, inputs
 
 
@@ -90,10 +99,16 @@ class CanvasReporter:
         self.notes: list[str] = []
         self.notes_id: str | None = None
         self.work_files: set[str] = set()
+        self.node_of: dict[str, str] = {}  # engine agent id -> org node id
 
     def start(self) -> None:
-        for key in self.ctx.team.members:
-            self.queued[key] = add(self.ctx, self._status_block(self.ctx.catalog.agents[key].name, key, "queued"))
+        cat, team = self.ctx.catalog, self.ctx.team
+        root = team.coordinator
+        set_node(self.ctx, root, name=cat.agents[root].name, agent=root, state="queued", detail="reading the input")
+        for key in team.members:
+            set_node(self.ctx, key, name=cat.agents[key].name, agent=key, parent=root, state="idle", detail=None)
+        for key in team.members:
+            self.queued[key] = add(self.ctx, self._status_block(cat.agents[key].name, key, "queued"))
 
     async def __call__(self, e: Event) -> None:
         d = e.data
@@ -104,6 +119,7 @@ class CanvasReporter:
                 title = f"{title} (for {self.names.get(e.parent_id, 'specialist')})"
             self.names[e.agent_id] = e.agent_name or "?"
             block = self._status_block(title, key, "running", _short(d.get("task", "")))
+            self._node_started(e, key, _short(d.get("task", "")))
             # The first instance of a member takes over its queued block.
             if key in self.queued:
                 block_id = self.queued.pop(key)
@@ -160,6 +176,7 @@ class CanvasReporter:
         for key, block_id in self.queued.items():  # members the coordinator never called
             name = self.ctx.catalog.agents[key].name
             update(self.ctx, block_id, self._status_block(name, key, "done", "not needed for this input"))
+            set_node(self.ctx, key, state="idle", detail="not needed for this input")
         if self.work_files:
             links = "\n".join(f"- [{p}]({file_url(self.ctx.canvas_id, p)})" for p in sorted(self.work_files))
             add(self.ctx, {"type": "markdown", "title": "Working files", "props": {"text": links}})
@@ -194,7 +211,26 @@ class CanvasReporter:
             block["props"]["detail"] = detail
         return block
 
+    def _node_started(self, e: Event, key: str | None, task: str) -> None:
+        """Place an agent in the org tree, under the node of the agent that started it."""
+        root = self.ctx.team.coordinator
+        if not e.parent_id:
+            node_id = root
+        elif key in self.ctx.team.members and self.ctx.nodes.get(key, {}).get("state") == "idle":
+            node_id = key  # the first instance of a member takes over its bench node
+        else:
+            node_id = e.agent_id or "?"
+        self.node_of[e.agent_id or ""] = node_id
+        parent = self.node_of.get(e.parent_id or "") if e.parent_id else None
+        if e.parent_id and parent is None:
+            parent = root
+        set_node(
+            self.ctx, node_id, name=e.agent_name or "?", agent=key, parent=parent, state="running", detail=task or None
+        )
+
     def _set(self, e: Event, state: str, detail: str | None) -> None:
+        if node_id := self.node_of.get(e.agent_id or ""):
+            set_node(self.ctx, node_id, state=state, detail=detail)
         block_id = self.status.get(e.agent_id or "")
         if block_id is None:
             return

@@ -1,0 +1,9 @@
+name: Data Governance Specialist
+description: >-
+  Covers data quality, lineage, cataloguing, access control, retention and
+  residency rules for a data platform.
+model: claude-sonnet-5-5
+skills: []
+tools:
+  web: false
+tags: [specialist, data, governance]

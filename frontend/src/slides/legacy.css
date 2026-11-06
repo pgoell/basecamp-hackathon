@@ -1,0 +1,235 @@
+/* What the slides pages (/slides, /print) inherited from the old main
+   stylesheet, scoped to them so the main app's restyle leaves them as they were.
+   :where() keeps the specificity of the old bare selectors. */
+:where(.slides-app, .print) {
+  --bg: #f6f7f9;
+  --panel: #fff;
+  --border: #e3e6ea;
+  --text: #1c2024;
+  --muted: #6b7280;
+  --accent: #2f6fed;
+  color: var(--text);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+:where(.slides-app, .print) .layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+:where(.slides-app, .print) .topbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+:where(.slides-app, .print) .topbar nav {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+:where(.slides-app, .print) main {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  flex: 1;
+}
+:where(.slides-app, .print) aside,
+:where(.slides-app, .print) .canvas {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+:where(.slides-app, .print) aside {
+  align-self: start;
+  position: sticky;
+  top: 1.5rem;
+}
+:where(.slides-app, .print) h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+:where(.slides-app, .print) h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+:where(.slides-app, .print) h4 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+:where(.slides-app, .print) .muted {
+  color: var(--muted);
+}
+:where(.slides-app, .print) .small {
+  font-size: 0.8rem;
+}
+:where(.slides-app, .print) .empty {
+  text-align: center;
+  padding: 4rem 0;
+}
+:where(.slides-app, .print) button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  margin-top: 0.75rem;
+}
+:where(.slides-app, .print) button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+:where(.slides-app, .print) button.tab {
+  background: none;
+  color: var(--text);
+  border-color: transparent;
+  margin: 0;
+}
+:where(.slides-app, .print) button.tab.active {
+  border-color: var(--border);
+  background: var(--bg);
+}
+:where(.slides-app, .print) textarea {
+  width: 100%;
+  font:
+    0.8rem/1.4 ui-monospace,
+    monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+:where(.slides-app, .print) .roster {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+:where(.slides-app, .print) .agent {
+  font-size: 0.7rem;
+  color: var(--accent);
+  background: #eef3fe;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+}
+:where(.slides-app, .print) .canvas-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+:where(.slides-app, .print) .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c4c8cf;
+}
+:where(.slides-app, .print) .dot-on {
+  background: #22a06b;
+}
+:where(.slides-app, .print) .block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.75rem;
+}
+:where(.slides-app, .print) .block header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+:where(.slides-app, .print) .markdown p:first-child {
+  margin-top: 0;
+}
+:where(.slides-app, .print) .markdown p:last-child {
+  margin-bottom: 0;
+}
+:where(.slides-app, .print) .status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+:where(.slides-app, .print) .pill {
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: #eceef1;
+}
+:where(.slides-app, .print) .pill-running {
+  background: #fff4d6;
+}
+:where(.slides-app, .print) .pill-done {
+  background: #dcfce7;
+}
+:where(.slides-app, .print) .pill-failed {
+  background: #fde2e1;
+}
+:where(.slides-app, .print) table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+}
+:where(.slides-app, .print) th,
+:where(.slides-app, .print) td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+:where(.slides-app, .print) .kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+:where(.slides-app, .print) .kv dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+:where(.slides-app, .print) .kv dd {
+  margin: 0;
+  font-weight: 600;
+}
+:where(.slides-app, .print) .callout {
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  background: #eef3fe;
+}
+:where(.slides-app, .print) .callout-success {
+  background: #dcfce7;
+}
+:where(.slides-app, .print) .callout-warning {
+  background: #fff4d6;
+}
+:where(.slides-app, .print) .callout-danger {
+  background: #fde2e1;
+}
+:where(.slides-app, .print) .file {
+  font-weight: 600;
+}
+:where(.slides-app, .print) .unknown pre {
+  font-size: 0.75rem;
+  overflow: auto;
+}
+:root:has(.slides-app, .print) {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  color: #1c2024;
+  background: #f6f7f9;
+}

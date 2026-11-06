@@ -56,6 +56,13 @@ class AgentSpec(BaseModel):
     tags: list[str] = Field(default_factory=list)
     # Reasoning effort; unset = by role (coordinator high, member medium, helper low).
     effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
+    # An agent with members is a lead: in a team it delegates to these
+    # specialists instead of the team's helpers (the third level).
+    members: list[str] = Field(default_factory=list)
+
+    @property
+    def is_lead(self) -> bool:
+        return bool(self.members)
 
     @property
     def fingerprint(self) -> str:
@@ -83,6 +90,7 @@ class SkillSpec(BaseModel):
 class TeamInput(BaseModel):
     label: str = "Input"
     sample: str | None = None  # file in knowledge/ shown as the default input
+    pdf: bool = False  # the web app offers a PDF upload for the input
 
 
 class TeamSpec(BaseModel):
@@ -182,6 +190,17 @@ def _validate(catalog: Catalog) -> None:
     errors: list[str] = []
     for agent in catalog.agents.values():
         errors += [f"agent '{agent.key}': unknown skill '{s}'" for s in agent.skills if s not in catalog.skills]
+        for ref in agent.members:
+            if ref not in catalog.agents:
+                errors.append(f"agent '{agent.key}': unknown member '{ref}'")
+            elif catalog.agents[ref].members:
+                errors.append(f"agent '{agent.key}': member '{ref}' has members of its own (one level only)")
+        if agent.key in agent.members:
+            errors.append(f"agent '{agent.key}': cannot be its own member")
+        if len(set(agent.members)) != len(agent.members):
+            errors.append(f"agent '{agent.key}': duplicate members")
+        if len(agent.members) > 20:  # Managed Agents roster limit
+            errors.append(f"agent '{agent.key}': at most 20 members")
     for team in catalog.teams.values():
         for ref in [team.coordinator, *team.members, *team.helpers]:
             if ref not in catalog.agents:
@@ -192,6 +211,8 @@ def _validate(catalog: Catalog) -> None:
             errors.append(f"team '{team.key}': duplicate members")
         if overlap := set(team.helpers) & {team.coordinator, *team.members}:
             errors.append(f"team '{team.key}': helpers cannot also be coordinator or members: {sorted(overlap)}")
+        if team.coordinator in catalog.agents and catalog.agents[team.coordinator].members:
+            errors.append(f"team '{team.key}': coordinator '{team.coordinator}' cannot have members of its own")
         if not 1 <= len(team.members) <= 20:
             errors.append(f"team '{team.key}': needs 1-20 members")
         for doc in [team.input.sample, *team.context]:

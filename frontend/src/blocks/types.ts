@@ -2,6 +2,16 @@
 // served at GET /api/schema if you want to generate these instead.
 
 export type StatusState = "queued" | "running" | "done" | "failed";
+export type NodeState = "idle" | StatusState;
+
+export interface OrgNode {
+  id: string;
+  name: string;
+  agent?: string | null;
+  parent?: string | null;
+  state: NodeState;
+  detail?: string | null;
+}
 export type Tone = "info" | "success" | "warning" | "danger";
 
 export interface BlockPropsByType {
@@ -11,6 +21,7 @@ export interface BlockPropsByType {
   kv: { items: { label: string; value: string }[] };
   callout: { tone: Tone; text: string };
   file: { filename: string; url?: string | null };
+  org: { nodes: OrgNode[] };
 }
 
 export type BlockType = keyof BlockPropsByType;

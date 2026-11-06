@@ -1,0 +1,9 @@
+name: Cloud Security Engineer
+description: >-
+  Covers identity, encryption, network security, data residency and compliance
+  controls (ISO 27001, SOC 2, GDPR) for a cloud solution.
+model: claude-sonnet-5-5
+skills: []
+tools:
+  web: false
+tags: [specialist, cloud, security]

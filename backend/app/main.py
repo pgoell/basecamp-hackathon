@@ -15,12 +15,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import dummy, hierarchy, runs, store
+from . import dummy, hierarchy, rfps, runs, store
 from .canvas import Canvas
 from .canvas import store as canvases
 from .canvas.models import block_input_adapter
 from .canvas.tools import TOOLS, dispatch
-from .catalog import CATALOG, AgentSpec, Catalog, CatalogError, load_catalog
+from .catalog import CATALOG, AgentSpec, Catalog, CatalogError, TeamSpec, load_catalog
 from .slides import chat, pdf, presentations, uploads
 
 log = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ MAX_PARALLEL_RUNS = int(os.environ.get("MAX_PARALLEL_RUNS", "2"))
 PING_SECONDS = 20
 
 app = FastAPI()
-for module in (presentations, uploads, chat, pdf):
+for module in (presentations, uploads, chat, pdf, rfps):
     app.include_router(module.router)
 # Runs outlive the request that started them; keep a reference so they finish.
 tasks: set[asyncio.Task] = set()
@@ -58,6 +58,7 @@ class AgentOut(BaseModel):
     web: bool
     tags: list[str]
     system: str
+    members: list[str]
 
     @classmethod
     def of(cls, spec: AgentSpec) -> "AgentOut":
@@ -70,12 +71,24 @@ class TeamSummary(BaseModel):
     description: str
     coordinator: str
     members: list[str]
+    # "crews" when some members run specialists of their own, else "helpers".
+    mode: str
+
+    @classmethod
+    def of(cls, team: TeamSpec, cat: Catalog) -> "TeamSummary":
+        crews = any(cat.agents[m].members for m in team.members)
+        return cls(**team.model_dump(include=SUMMARY), mode="crews" if crews else "helpers")
 
 
 class TeamDetail(TeamSummary):
     coordinator_agent: AgentOut
     member_agents: list[AgentOut]
+    # Specialists that the leads among member_agents run, by key.
+    sub_agents: dict[str, AgentOut]
+    # Helpers any member without a crew may send out.
+    helper_agents: list[AgentOut]
     input_label: str
+    input_pdf: bool
     sample_input: str | None
 
 
@@ -86,6 +99,7 @@ class CanvasCreate(BaseModel):
 
 class RunRequest(BaseModel):
     input: str | None = None  # defaults to the team's sample input
+    rfp_id: str | None = None  # an uploaded PDF (POST /api/rfps); wins over input
 
 
 SUMMARY = {"key", "name", "description", "coordinator", "members"}
@@ -115,7 +129,8 @@ def list_agents() -> list[AgentOut]:
 
 @app.get("/api/teams")
 def list_teams() -> list[TeamSummary]:
-    return [TeamSummary(**t.model_dump(include=SUMMARY)) for t in catalog().teams.values()]
+    cat = catalog()
+    return [TeamSummary.of(t, cat) for t in cat.teams.values()]
 
 
 @app.get("/api/teams/{team_key}")
@@ -125,10 +140,13 @@ def get_team(team_key: str) -> TeamDetail:
         raise HTTPException(404, f"unknown team: {team_key}")
     t = cat.teams[team_key]
     return TeamDetail(
-        **t.model_dump(include=SUMMARY),
+        **TeamSummary.of(t, cat).model_dump(),
         coordinator_agent=AgentOut.of(cat.agents[t.coordinator]),
         member_agents=[AgentOut.of(cat.agents[m]) for m in t.members],
+        sub_agents={s: AgentOut.of(cat.agents[s]) for m in t.members for s in cat.agents[m].members},
+        helper_agents=[AgentOut.of(cat.agents[h]) for h in t.helpers],
         input_label=t.input.label,
+        input_pdf=t.input.pdf,
         sample_input=cat.read_knowledge(t.input.sample) if t.input.sample else None,
     )
 
@@ -183,19 +201,25 @@ async def start_run(team_key: str, body: RunRequest) -> dict:
     if team_key not in cat.teams:
         raise HTTPException(404, f"unknown team: {team_key}")
     team = cat.teams[team_key]
-    text = body.input or (cat.read_knowledge(team.input.sample) if team.input.sample else "")
+    rfp = rfps.load(body.rfp_id) if body.rfp_id else None
+    if rfp:
+        text = rfp.text or f"(scanned PDF: {rfp.filename}, no text layer)"
+    else:
+        text = body.input or (cat.read_knowledge(team.input.sample) if team.input.sample else "")
     if not text:
         raise HTTPException(422, "input is required for this team")
     if ORCHESTRATOR != "dummy" and len(tasks) >= MAX_PARALLEL_RUNS:
         raise HTTPException(429, f"{MAX_PARALLEL_RUNS} runs are already in progress. Try again later.")
 
-    canvas = canvases.create(f"{team.name} run", team=team.key)
+    title = f"{team.name}: {rfp.filename}" if rfp else f"{team.name} run"
+    canvas = canvases.create(title, team=team.key)
     ctx = runs.RunContext(
         catalog=cat,
         team=team,
         input_text=text,
         canvas_id=canvas.id,
         call_tool=lambda name, args: dispatch(canvas.id, name, args),
+        rfp=rfp,
     )
 
     async def work() -> None:

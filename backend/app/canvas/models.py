@@ -49,6 +49,19 @@ class FileProps(_Strict):
     url: str | None = Field(None, description="Download link, once the file exists.")
 
 
+class OrgNode(_Strict):
+    id: str = Field(description="Unique within the block, e.g. 'cloud-architect/finops-analyst'.")
+    name: str
+    agent: str | None = Field(None, description="Catalog key of the agent.")
+    parent: str | None = Field(None, description="Id of the parent node; null for the root.")
+    state: Literal["idle", "queued", "running", "done", "failed"] = "idle"
+    detail: str | None = Field(None, description="One line: why it was engaged, or what it is doing.")
+
+
+class OrgProps(_Strict):
+    nodes: list[OrgNode]
+
+
 # -- blocks ------------------------------------------------------------------
 class _BlockBase(_Strict):
     title: str | None = None
@@ -85,13 +98,20 @@ class FileBlock(_BlockBase):
     props: FileProps
 
 
+class OrgBlock(_BlockBase):
+    """A live tree of agents: orchestrator, the leads it engaged, their specialists."""
+
+    type: Literal["org"] = "org"
+    props: OrgProps
+
+
 BlockInput = Annotated[
-    MarkdownBlock | StatusBlock | TableBlock | KeyValueBlock | CalloutBlock | FileBlock,
+    MarkdownBlock | StatusBlock | TableBlock | KeyValueBlock | CalloutBlock | FileBlock | OrgBlock,
     Field(discriminator="type"),
 ]
 block_input_adapter: TypeAdapter[BlockInput] = TypeAdapter(BlockInput)
 
-BLOCK_TYPES = ["markdown", "status", "table", "kv", "callout", "file"]
+BLOCK_TYPES = ["markdown", "status", "table", "kv", "callout", "file", "org"]
 
 
 class Block(BaseModel):

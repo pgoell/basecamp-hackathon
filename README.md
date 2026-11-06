@@ -21,6 +21,12 @@ frontend/   Bun and React. server.ts serves the page and forwards /api.
 docs/hackathon/  scenario cards and stretch goals
 ```
 
+## RFP Solutioning (PDF in, dynamic staffing, crews per lead)
+
+Upload an RFP as a PDF. The **RFP Orchestrator** reads it, writes a staffing analysis, and delegates only to the leads the bid needs from a pool: Cloud Architect, Data Engineering Lead, Delivery Lead, Pricing, Legal, Competitive Intel. A lead with `members` in its `agent.yaml` delegates to that crew instead of the team's helpers: the Cloud Architect runs a Network Engineer, a Cloud Security Engineer and a FinOps Analyst; the Data Engineering Lead runs a Pipeline Engineer, a Data Governance Specialist and an Analytics Engineer. The other leads may send out the team's helpers. `app/hierarchy.py: build_roster` wires this, and the engine's limits still apply (at most 3 children per lead). The canvas shows the whole tree live in one `org` block, built from the engine's parent/child events.
+
+The PDF goes to `POST /api/rfps`, which stores it under `DATA_DIR/rfps` and pulls out its text with pypdf. A run writes that text to the run's `inputs/`. A scanned PDF without a text layer gives no text.
+
 ## PowerPointless (slides)
 
 A slide editor at `/slides`: 16:9 slides with text, shapes, images and tables, PDF download, and a chat at the side whose agent (Claude Opus 5.5) edits the deck through tools. Several chats per presentation; no user accounts. Details in [`docs/slides.md`](./docs/slides.md).

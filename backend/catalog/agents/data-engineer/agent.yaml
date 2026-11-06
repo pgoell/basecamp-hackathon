@@ -1,0 +1,12 @@
+name: Data Engineering Lead
+description: >-
+  Designs the data solution for an RFP: ingestion, storage, transformation,
+  governance and analytics. Leads a Pipeline Engineer, a Data Governance
+  Specialist and an Analytics Engineer. Hand it the RFP requirements on data
+  sources, volumes, latency, BI, ML and compliance.
+model: claude-opus-5-5
+skills: []
+tools:
+  web: false
+tags: [lead, data, rfp-solutioning]
+members: [pipeline-engineer, data-governance-specialist, analytics-engineer]
